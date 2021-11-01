@@ -352,7 +352,7 @@ int main() {
   test_topk(10000, 100, 8, 5000);
 }
 
-PYBIND11_MODULE(hsoftmax_cpp, m) {
+PYBIND11_MODULE(svbop_cpp, m) {
    torch::python::bind_module<HSoftmax>(m, "HSoftmax")
      .def(py::init<int64_t, int64_t>())
      .def("forward", &HSoftmax::forward)
