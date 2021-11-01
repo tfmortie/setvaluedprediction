@@ -73,7 +73,8 @@ ext_modules = [
     CppExtension(
         'hsoftmax_cpp',
         ['../cpp/hsoftmax.cpp'],
-        extra_compile_args=['-O3', '-g', '-fopenmp'])
+        #extra_compile_args=['-O3', '-g', '-fopenmp']) # use this line on linux
+        extra_compile_args=['-O3', '-g']) # use this line on mac
 ]
 setup(name='hsoftmax_cpp', ext_modules=ext_modules,
         cmdclass={'build_ext': BuildExtension})
