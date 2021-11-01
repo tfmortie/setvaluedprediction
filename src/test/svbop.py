@@ -1,7 +1,6 @@
 import torch
-from svbop_cpp import HSoftmax
+from svbop_cpp import SVBOP
 
 if __name__=="__main__":
-    model = HSoftmax(10,10)
-
+    model = SVBOP(10, 10, [[1,2,3,4],[1,2],[3,4]])
     print("SUCCES!")
