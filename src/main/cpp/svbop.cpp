@@ -1,5 +1,4 @@
 #include <torch/torch.h>
-#include <torch/python.h>
 #include <torch/extension.h>
 #include <iostream>
 #include <queue>
