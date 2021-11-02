@@ -1,9 +1,8 @@
 """
 Some important functions and classes that are used throughout the module.
+
 Author: Thomas Mortier
 Date: November 2021
-
-TODO: complete pydoc
 """
 import numpy as np
 
@@ -184,7 +183,10 @@ class HLabelEncoder(TransformerMixin, BaseEstimator):
      
     Examples
     --------
-
+    >>> y_h = np.array(["root;famA;genA","root;famA;genB","root;famB;genC","root;famB;genD"])
+    >>> hle = utils.HLabelEncoder(sep=";")
+    >>> y_h_e = hle.fit_transform(y_h)
+    >>> y_h_e_backtransform = hle.inverse_transform(y_h_e)
     """
     def __init__(self, sep=";"):
         self.sep = sep
@@ -211,12 +213,12 @@ class HLabelEncoder(TransformerMixin, BaseEstimator):
         for i,yi in enumerate(self.classes_):
             path_nodes = yi.split(self.sep)
             for j,nj in enumerate(path_nodes):
-                if nj not in self.tree:
+                if nj not in self.tree_:
                     self.tree_[nj] = {
                         "yhat": [i],
                         "chn": [],
                         "par": (None if j==0 else path_nodes[j-1]),
-                        "lbl": (nj if j==0 else path_nodes[j-1]+self.sep+nj)
+                        "lbl": (nj if j==0 else self.tree_[path_nodes[j-1]]["lbl"]+self.sep+nj)
                     }
                     if j!=0:
                         self.tree_[path_nodes[j-1]]["chn"].append(nj)
@@ -225,12 +227,13 @@ class HLabelEncoder(TransformerMixin, BaseEstimator):
                         self.tree_[nj]["yhat"].append(i)
         # now obtain lbl->yhat mapping
         self.lbl_to_yhat_ = {self.tree_[k]["lbl"]:self.tree_[k]["yhat"] for k,v in self.tree_.items()}
+        print(f'{self.lbl_to_yhat_=}')
         # and obtain struct (in terms of yhat)
         self.hstruct_ = []
         # find the root first 
         root = None
         for n in self.tree_:
-            if self.tree[n]["par"] is None:
+            if self.tree_[n]["par"] is None:
                 root = n
                 break
         visit_list = [root]
@@ -238,7 +241,7 @@ class HLabelEncoder(TransformerMixin, BaseEstimator):
         while len(visit_list) != 0:
             node = visit_list.pop(0)
             self.hstruct_.append(self.lbl_to_yhat_[node])
-            visit_list.extend(self.tree_[node]["chn"])
+            visit_list.extend([node+self.sep+nch for nch in self.tree_[node.split(self.sep)[-1]]["chn"]])
 
         return self
 
@@ -299,7 +302,7 @@ class HLabelEncoder(TransformerMixin, BaseEstimator):
         if len(y) == 0:
             return np.array([])
         # create reverse yhat->lbl mappint
-        yhat_to_lbl = {v:k for (k,v) in self.lbl_to_yhat_.keys()}
+        yhat_to_lbl = {str(v):k for (k,v) in self.lbl_to_yhat_.items()}
         y_transformed = []
         for yi in y:
             y_transformed.append(yhat_to_lbl[str([yi])])
