@@ -1,8 +1,9 @@
 /* 
-    Author: Thomas Mortier 2021
-    Implementation of SVBOP.
+    Implementation of SVBOP by using the LibTorch C++ frontend.
+    
+    Author: Thomas Mortier
+    Date: November 2021
 */
-
 #include <torch/torch.h>
 #include <torch/extension.h>
 #include <iostream>
@@ -91,53 +92,73 @@ torch::Tensor SVPNode::forward(torch::Tensor input, int64_t x_ind, int64_t y_ind
 SVBOP::SVBOP(int64_t in_features, int64_t num_classes, std::vector<std::vector<int64_t>> hstruct) {
   // first create root node 
   this->root = new SVPNode();
-  // now construct tree
-  this->root->y = hstruct[0];
-  this->root->chn = {};
-  this->root->par = this;
-  for (int64_t i=1; i<static_cast<int64_t>(hstruct.size()); ++i)
-    this->root->addch(in_features, hstruct[i]);   
+  // check if we need a softmax or h-softmax
+  if (hstruct.size() == 0) {
+    this->root->estimator = this->register_module("linear", torch::nn::Linear(in_features,num_classes));
+    this->root->y = {};
+    this->root->chn = {};
+    this->root->par = this;
+  }
+  else
+  {
+    // construct tree for h-softmax
+    this->root->y = hstruct[0];
+    this->root->chn = {};
+    this->root->par = this;
+    for (int64_t i=1; i<static_cast<int64_t>(hstruct.size()); ++i)
+      this->root->addch(in_features, hstruct[i]);   
+  }
 }
 
 /*
   TODO
 */
 torch::Tensor SVBOP::forward(torch::Tensor input, std::vector<int64_t> target) {
-  int64_t batch_size {input.size(0)};
-  std::vector<torch::Tensor> probs;
-  // run over each sample in batch
-  at::parallel_for(0, batch_size, 0, [&](int64_t start, int64_t end) {
-  for (int64_t bi=start; bi<end; bi++)
-  //for (int64_t bi=0;bi<batch_size;++bi)
+  if (this->root->y.size() == 0)
   {
-    // begin at root
-    SVPNode* visit_node = this->root;
-    torch::Tensor prob = torch::ones(1);
-    while (!visit_node->chn.empty())
-    {
-        int64_t found_ind {-1};
-        for (int64_t i=0; i<static_cast<int64_t>(visit_node->chn.size()); ++i)
-        { 
-            if (std::count(visit_node->chn[i]->y.begin(), visit_node->chn[i]->y.end(), target[bi]))
-            {
-                found_ind = i;
-                break;
-            }  
-        }
-        if (found_ind != -1)
-        {
-            prob = prob*visit_node->forward(input, bi, found_ind);
-            visit_node = visit_node->chn[found_ind];
-        }
-    }
-    probs.push_back(prob);
+    auto o = this->root->estimator->forward(input);
+    o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1));
+    return o;
   }
-  });
-  return torch::stack(probs);
+  else
+  {
+    int64_t batch_size {input.size(0)};
+    std::vector<torch::Tensor> probs;
+    // run over each sample in batch
+    //at::parallel_for(0, batch_size, 0, [&](int64_t start, int64_t end) {
+    //for (int64_t bi=start; bi<end; bi++)
+    for (int64_t bi=0;bi<batch_size;++bi)
+    {
+      // begin at root
+      SVPNode* visit_node = this->root;
+      torch::Tensor prob = torch::ones(1);
+      while (!visit_node->chn.empty())
+      {
+          int64_t found_ind {-1};
+          for (int64_t i=0; i<static_cast<int64_t>(visit_node->chn.size()); ++i)
+          { 
+              if (std::count(visit_node->chn[i]->y.begin(), visit_node->chn[i]->y.end(), target[bi]))
+              {
+                  found_ind = i;
+                  break;
+              }  
+          }
+          if (found_ind != -1)
+          {
+              prob = prob*visit_node->forward(input, bi, found_ind);
+              visit_node = visit_node->chn[found_ind];
+          }
+      }
+      probs.push_back(prob);
+    }
+    //});
+    return torch::stack(probs);
+  }
 }
 
 PYBIND11_MODULE(svbop_cpp, m) {
-   torch::python::bind_module<SVBOP>(m, "SVBOP")
-     .def(py::init<int64_t, int64_t, std::vector<std::vector<int64_t>>>())
-     .def("forward", &SVBOP::forward);
+  using namespace pybind11::literals;
+  torch::python::bind_module<SVBOP>(m, "SVBOP")
+    .def(py::init<int64_t, int64_t, std::vector<std::vector<int64_t>>>(), "in_features"_a, "num_classes"_a, "hstruct"_a=py::list())
+    .def("forward", &SVBOP::forward, "input"_a, "target"_a=py::list());
 }

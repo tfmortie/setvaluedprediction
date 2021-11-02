@@ -15,9 +15,11 @@ def test_hlabeltransformer():
     y = np.random.choice(["A", "B", "C", "D", "E", "F", "G", 
     "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", 
     "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],5)
+    # transform labels to hierarchical labels (for some random hierarchy)
     hlt = utils.HLabelTransformer((2,4),sep=";",random_state=2021)
     y_transform = hlt.fit_transform(y)
     print(f'{y_transform=}')
+    # reverse transform and check
     y_backtransform = hlt.inverse_transform(y_transform)
     print(f'{np.all(y==y_backtransform)=}')
 
@@ -26,11 +28,14 @@ def test_hlabelencoder():
     y = np.random.choice(["A", "B", "C", "D", "E", "F", "G", 
     "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", 
     "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],4)
+    # transform labels to hierarchical labels (for some random hierarchy)
     hlt = utils.HLabelTransformer((2,2),sep=";",random_state=2021)
     y_h = hlt.fit_transform(y)
+    # now convert to numbers in [0,K-1]
     hle = utils.HLabelEncoder(sep=";")
     y_h_e = hle.fit_transform(y_h)
     print(f'{y_h_e=}')
+    # reverse transform and check
     y_h_e_backtransform = hle.inverse_transform(y_h_e)
     print(f'{np.all(y_h==y_h_e_backtransform)=}')
     print(f'{hle.hstruct_=}')

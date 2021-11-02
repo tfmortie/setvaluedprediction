@@ -1,5 +1,5 @@
 """
-Some important functions and classes that are used throughout the module.
+Some important functions and classes that are used throughout the set-valued prediction module.
 
 Author: Thomas Mortier
 Date: November 2021
@@ -166,6 +166,11 @@ class HLabelEncoder(TransformerMixin, BaseEstimator):
     ----------
     sep : str
         String used for path encodings.
+    
+    Attributes
+    ----------
+    sep : str
+        String used for path encodings.
     classes_ : list 
         Classes (original) seen during fit.
     tree_ : Dict
@@ -175,11 +180,6 @@ class HLabelEncoder(TransformerMixin, BaseEstimator):
         values are corresponding sets of encoded labels.
     hstruct_ : list
         List BFS structure which represents the taxonomy in terms of encoded labels after fit.
-    
-    Attributes
-    ----------
-    sep : str
-        String used for path encodings.
      
     Examples
     --------
@@ -227,7 +227,6 @@ class HLabelEncoder(TransformerMixin, BaseEstimator):
                         self.tree_[nj]["yhat"].append(i)
         # now obtain lbl->yhat mapping
         self.lbl_to_yhat_ = {self.tree_[k]["lbl"]:self.tree_[k]["yhat"] for k,v in self.tree_.items()}
-        print(f'{self.lbl_to_yhat_=}')
         # and obtain struct (in terms of yhat)
         self.hstruct_ = []
         # find the root first 
