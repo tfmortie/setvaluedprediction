@@ -17,7 +17,7 @@ struct SVPNode : torch::nn::Module {
     torch::nn::Module *par;
     // functions
     void addch(int64_t in_features, std::vector<int64_t> y); 
-    torch::Tensor forward(torch::Tensor input, int64_t x_ind={}, int64_t y_ind={});
+    torch::Tensor forward(torch::Tensor input, int64_t y_ind={});
 };
 
 /* class which represents an SVBOP object */

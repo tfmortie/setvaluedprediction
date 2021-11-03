@@ -73,15 +73,14 @@ void SVPNode::addch(int64_t in_features, std::vector<int64_t> y) {
 /*
   TODO
 */
-torch::Tensor SVPNode::forward(torch::Tensor input, int64_t x_ind, int64_t y_ind) {
+torch::Tensor SVPNode::forward(torch::Tensor input, int64_t y_ind) {
   torch::Tensor prob;
   if (this->chn.size() > 1)
   {
     prob = this->estimator->forward(input);
-    prob = torch::nn::functional::softmax(prob, torch::nn::functional::SoftmaxFuncOptions(1));
-    prob = prob[x_ind][y_ind];
+    prob = torch::nn::functional::softmax(prob, torch::nn::functional::SoftmaxFuncOptions(0));
   }
-  return prob;
+  return prob[y_ind];
 }
 
 /* Code for SVPredictor */
@@ -145,7 +144,7 @@ torch::Tensor SVBOP::forward(torch::Tensor input, std::vector<int64_t> target) {
           }
           if (found_ind != -1)
           {
-              prob = prob*visit_node->forward(input, bi, found_ind);
+              prob = prob*visit_node->forward(input[bi], found_ind);
               visit_node = visit_node->chn[found_ind];
           }
       }
