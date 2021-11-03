@@ -55,7 +55,7 @@ void SVPNode::addch(int64_t in_features, std::vector<int64_t> y) {
         // get string representation of y
         std::stringstream ystr;
         std::copy(y.begin(), y.end(), std::ostream_iterator<int>(ystr, " "));
-        this->estimator = this->par->register_module(ystr.str(), torch::nn::Linear(in_features,2));
+        this->estimator = this->par->register_module(ystr.str(), torch::nn::Linear(in_features, this->y.size()));
       }
     }
   }
