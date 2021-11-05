@@ -94,7 +94,7 @@ def test_svbop_hier(n, d, k, h):
     return forward_time, backprop_time
 
 if __name__=="__main__":
-    f_time, b_time = test_svbop_hier(1, 10000, 10000, (2, 50)) 
+    f_time, b_time = test_svbop_hier(1, 10000, 10000, (2, 2)) 
     print("HSOFTMAX")
     print("Forward time = {0}, backprop time = {1}".format(f_time, b_time))
     f_time, b_time = test_svbop_flat(1, 10000, 10000)
