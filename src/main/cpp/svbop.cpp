@@ -55,7 +55,7 @@ void SVPNode::addch(int64_t in_features, std::vector<int64_t> y) {
         // get string representation of y
         std::stringstream ystr;
         std::copy(y.begin(), y.end(), std::ostream_iterator<int>(ystr, " "));
-        this->estimator = this->par->register_module(ystr.str(), torch::nn::Linear(in_features, this->y.size()));
+        this->estimator = this->par->register_module(ystr.str(), torch::nn::Linear(in_features, this->chn.size()));
       }
     }
   }
@@ -129,7 +129,7 @@ torch::Tensor SVBOP::forward(torch::Tensor input, std::vector<std::vector<int64_
       torch::Tensor prob = torch::ones(1);
       for (int64_t yi=0;yi<target[bi].size();++yi)
       {
-        prob = prob*visit_node->forward(input[bi], target[bi][yi]);
+        prob = prob*visit_node->forward(input[bi], bi, target[bi][yi]);
         visit_node = visit_node->chn[target[bi][yi]];
       }
       probs.push_back(prob);

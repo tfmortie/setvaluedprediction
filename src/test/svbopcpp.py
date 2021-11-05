@@ -93,7 +93,7 @@ def test_svbop_hier(n, d, k, h):
 
 if __name__=="__main__":
     print("TEST SVBOP HIER")
-    test_svbop_hier(1, 100, 10000, (2, 50))
+    test_svbop_hier(1, 100, 10000, (5, 10))
     print("DONE!")
     print("TEST SVBOP FLAT")
     test_svbop_flat(1, 100, 10000)
