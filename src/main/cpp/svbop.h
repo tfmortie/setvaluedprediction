@@ -26,7 +26,8 @@ struct SVBOP : torch::nn::Module {
     SVPNode* root;
     // functions
     SVBOP(int64_t in_features, int64_t num_classes, std::vector<std::vector<int64_t>> hstruct={});
-    torch::Tensor forward(torch::Tensor input, std::vector<int64_t> target={});
+    //torch::Tensor forward(torch::Tensor input, std::vector<int64_t> target={});
+    torch::Tensor forward(torch::Tensor input, std::vector<std::vector<int64_t>> target={});
 };
 
 #endif
