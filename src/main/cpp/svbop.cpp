@@ -129,7 +129,8 @@ torch::Tensor SVBOP::forward(torch::Tensor input, std::vector<std::vector<int64_
       torch::Tensor prob = torch::ones(1);
       for (int64_t yi=0;yi<target[bi].size();++yi)
       {
-        prob = prob*visit_node->forward(input[bi], bi, target[bi][yi]);
+        //prob = prob*1;
+        prob = prob*visit_node->forward(input[bi], target[bi][yi]);
         visit_node = visit_node->chn[target[bi][yi]];
       }
       probs.push_back(prob);
