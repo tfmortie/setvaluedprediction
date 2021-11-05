@@ -61,7 +61,7 @@ def test_svbop_hier(n, d, k, h):
     # generate a random sample with labels
     classes = np.arange(0, k)
     y = np.random.randint(0, k, n)
-    hlt = HLabelTransformer(k=h,sep=";",random_state=2021)
+    hlt = HLabelTransformer(k=(2,50),sep=";",random_state=2021)
     hle = HLabelEncoder(sep=";")
     hlt = hlt.fit(classes)
     hle = hle.fit(hlt.transform(classes))
