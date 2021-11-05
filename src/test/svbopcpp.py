@@ -46,7 +46,7 @@ def test_svbop_hier(n, d, k):
     # generate a random sample with labels
     classes = np.arange(0, k)
     y = np.random.randint(0, k, n)
-    hlt = HLabelTransformer(k=(2,4),sep=";",random_state=2021)
+    hlt = HLabelTransformer(k=(2,50),sep=";",random_state=2021)
     hle = HLabelEncoder(sep=";")
     hlt = hlt.fit(classes)
     hle = hle.fit(hlt.transform(classes))
@@ -76,17 +76,9 @@ def test_svbop_hier(n, d, k):
     optimizer.zero_grad()
 
 if __name__=="__main__":
-<<<<<<< HEAD
-    print("TEST SVBOP FLAT")
-    test_svbop_flat(1,1000,10000)
-    print("DONE!")
     print("TEST SVBOP HIER")
-    test_svbop_hier(1,1000,10000)
-=======
-    print("TEST SVBOP HIER")
-    test_svbop_hier(1,1000,10000)
+    test_svbop_hier(1,100,10000)
     print("DONE!")
     print("TEST SVBOP FLAT")
-    test_svbop_flat(1,1000,10000)
->>>>>>> 3f9f4df16019a9c1156b9debcdab355e24f76dbf
+    test_svbop_flat(1,100,10000)
     print("DONE!")
