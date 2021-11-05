@@ -48,14 +48,15 @@ def test_svbop_flat(n, d, k):
     start_time = time.time()
     out = model(X)
     stop_time = time.time()
-    print("Total time forward = {0}".format(stop_time-start_time))
+    forward_time = stop_time-start_time
     start_time = time.time()
     loss = criterion(out, y) 
     loss.backward()
     optimizer.step()
     stop_time = time.time()
-    print("Total time backprop = {0}".format(stop_time-start_time))
+    backprop_time = stop_time-start_time
     optimizer.zero_grad()
+    return forward_time, backprop_time
 
 def test_svbop_hier(n, d, k, h):
     # generate a random sample with labels
@@ -82,19 +83,20 @@ def test_svbop_hier(n, d, k, h):
     start_time = time.time()
     out = model(X,y_t_l)
     stop_time = time.time()
-    print("Total time forward = {0}".format(stop_time-start_time))
+    forward_time = stop_time-start_time
     start_time = time.time()
     loss = criterion(out.view(-1),y_t_e_tensor)
     loss.backward()
     optimizer.step()
     stop_time = time.time()
-    print("Total time backprop = {0}".format(stop_time-start_time))
+    backprop_time = stop_time-start_time
     optimizer.zero_grad()
+    return forward_time, backprop_time
 
 if __name__=="__main__":
-    print("TEST SVBOP HIER")
-    test_svbop_hier(1, 100, 10000, (5, 10))
-    print("DONE!")
-    print("TEST SVBOP FLAT")
-    test_svbop_flat(1, 100, 10000)
-    print("DONE!")
+    f_time, b_time = test_svbop_hier(1, 10000, 10000, (2, 50)) 
+    print("HSOFTMAX")
+    print("Forward time = {0}, backprop time = {1}".format(f_time, b_time))
+    f_time, b_time = test_svbop_flat(1, 10000, 10000)
+    print("SOFTMAX")
+    print("Forward time = {0}, backprop time = {1}".format(f_time, b_time))
