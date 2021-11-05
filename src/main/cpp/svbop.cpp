@@ -109,9 +109,37 @@ SVBOP::SVBOP(int64_t in_features, int64_t num_classes, std::vector<std::vector<i
   }
 }
 
+torch::Tensor SVBOP::forward(torch::Tensor input, std::vector<std::vector<int64_t>> target) {
+  if (this->root->y.size() == 0)
+  {
+    auto o = this->root->estimator->forward(input);
+    o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1));
+    return o;
+  }
+  else
+  {
+    std::vector<torch::Tensor> probs;
+    // run over each sample in batch
+    //at::parallel_for(0, batch_size, 0, [&](int64_t start, int64_t end) {
+    //for (int64_t bi=start; bi<end; bi++)
+    for (int64_t bi=0;bi<input.size(0);++bi)
+    {
+      // begin at root
+      SVPNode* visit_node = this->root;
+      torch::Tensor prob = torch::ones(1);
+      for (int64_t yi=0;yi<target[bi].size();++yi)
+      {
+        prob = prob*visit_node->forward(input[bi], target[bi][yi]);
+        visit_node = visit_node->chn[target[bi][yi]];
+      }
+      probs.push_back(prob);
+    }
+    //});
+    return torch::stack(probs);
+  }
+}
+
 /*
-  TODO
-*/
 torch::Tensor SVBOP::forward(torch::Tensor input, std::vector<int64_t> target) {
   if (this->root->y.size() == 0)
   {
@@ -154,6 +182,7 @@ torch::Tensor SVBOP::forward(torch::Tensor input, std::vector<int64_t> target) {
     return torch::stack(probs);
   }
 }
+*/
 
 PYBIND11_MODULE(svbop_cpp, m) {
   using namespace pybind11::literals;
