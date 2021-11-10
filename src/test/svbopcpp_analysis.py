@@ -75,7 +75,8 @@ def test_svbop_hier(n, d, k, h):
     y_t_e = hle.transform(y_t) 
     y_t_l = oned2twod(y_t, hle) 
     # construct PyTorch tensors
-    y_t_e_tensor = torch.tensor(y_t_e).to(torch.float32)
+    y_t_e_tensor = torch.ones_like(torch.tensor(y_t_e)).to(torch.float32)
+    #y_t_e_tensor = torch.tensor(y_t_e).to(torch.float32)
     X = torch.randn(n,d)
     # create hierarchical softmax layer
     model = SVBOP(d,k,hle.hstruct_)
