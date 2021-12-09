@@ -129,7 +129,7 @@ torch::Tensor SVP::forward(torch::Tensor input, std::vector<std::vector<int64_t>
     }
 }
 
-PYBIND11_MODULE(svp, m) {
+PYBIND11_MODULE(svp_cpp, m) {
     using namespace pybind11::literals;
     torch::python::bind_module<SVP>(m, "SVP")
         .def(py::init<int64_t, int64_t, std::vector<std::vector<int64_t>>>(), "in_features"_a, "num_classes"_a, "hstruct"_a=py::list())
