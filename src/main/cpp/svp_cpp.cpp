@@ -110,7 +110,7 @@ torch::Tensor SVP::forward(torch::Tensor input, std::vector<std::vector<int64_t>
         auto o = this->root->estimator->forward(input);
         for (int64_t bi=0;bi<input.size(0);++bi)
             loss = loss + criterion(o[bi], torch::tensor({target[bi][0]}));
-        return loss/input.size(0);
+        return loss;
     }
     else
     {
@@ -125,7 +125,7 @@ torch::Tensor SVP::forward(torch::Tensor input, std::vector<std::vector<int64_t>
                 visit_node = visit_node->chn[target[bi][yi]];
             }
         }
-        return loss/input.size(0);
+        return loss;
     }
 }
 
