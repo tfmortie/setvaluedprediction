@@ -229,7 +229,20 @@ class HFLabelTransformer(TransformerMixin, BaseEstimator):
                 else:
                     if i not in self.tree_[nj]["yhat"]:
                         self.tree_[nj]["yhat"].append(i)
-        # now obtain lbl->yhat dictionary
+        # create hlbl->hpath dictionary
+        self.hlbl_to_hpath_ = {c:[] for c in self.classes_}
+        for c in self.classes_:
+            node = c.split(self.sep)[-1]
+            par_node = self.tree_[node]["par"]
+            while par_node is not None:
+                self.hlbl_to_hpath_[c].append(self.tree_[par_node]["chn"].index(node))
+                node = par_node
+                par_node = self.tree_[node]["par"]
+        # reverse values in hlbl->hpath
+        self.hlbl_to_hpath_ = {k:v[::-1] for k,v in self.hlbl_to_hpath_.items()}
+        # also store decoding dict
+        self.hpath_to_hlbl_ = {str(v):k for k,v in self.hlbl_to_hpath_.items()}
+        # now obtain hlbl->yhat dictionary
         self.hlbl_to_yhat_ = {self.tree_[k]["lbl"]:self.tree_[k]["yhat"] for k,v in self.tree_.items()}
         # also store decoding dict
         self.yhat_to_hlbl_ = {str(v):k for k,v in self.hlbl_to_yhat_.items()}
@@ -250,13 +263,15 @@ class HFLabelTransformer(TransformerMixin, BaseEstimator):
 
         return self
 
-    def fit_transform(self, y):
+    def fit_transform(self, y, path=False):
         """ Fit hierarchical to flat label encoder and transform hierarchical labels to encoded flat labels.
 
         Parameters
         ----------
         y : array-like of shape (n_samples,)
             Target values.
+        path : boolean, default=False
+            Whether paths need to be returned or encoded flat labels.
 
         Returns
         -------
@@ -266,13 +281,15 @@ class HFLabelTransformer(TransformerMixin, BaseEstimator):
 
         return self.transform(y)
 
-    def transform(self, y):
-        """ Transform hierarchical labels to encoded flat labels.
+    def transform(self, y, path=False):
+        """ Transform hierarchical labels to encoded flat labels or paths in hierarchy.
 
         Parameters
         ----------
         y : array-like of shape (n_samples,)
             Target values.
+        path : boolean, default=False
+            Whether paths need to be returned or encoded flat labels.
 
         Returns
         -------
@@ -286,30 +303,37 @@ class HFLabelTransformer(TransformerMixin, BaseEstimator):
             y_transformed = np.array([])
         else:
             for yi in y:
-                y_transformed.append(self.hlbl_to_yhat_[yi][0])
+                if not path:
+                    y_transformed.append(self.hlbl_to_yhat_[yi])
+                else:
+                    y_transformed.append(self.hlbl_to_hpath_[yi])
 
         return y_transformed
 
-    def inverse_transform(self, y):
+    def inverse_transform(self, y, path=False):
         """ Transform encoded flat labels back to original hierarchical labels.
 
         Parameters
         ----------
         y : ndarray of shape (n_samples,)
             Target values.
+        path : boolean, default=False
+            Whether y represents paths or encoded flat labels.
 
         Returns
         -------
         y : ndarray of shape (n_samples,)
         """
         check_is_fitted(self)
-        y = column_or_1d(y, warn=True)
         y_transformed = []
         if len(y) == 0:
             # transform of empty array is empty array
             y_transformed = np.array([])
         else:
             for yi in y:
-                y_transformed.append(self.yhat_to_hlbl_[str([yi])])
+                if not path:
+                    y_transformed.append(self.yhat_to_hlbl_[str(yi)])
+                else:
+                    y_transformed.append(self.hpath_to_hlbl_[str(yi)])
 
         return y_transformed
