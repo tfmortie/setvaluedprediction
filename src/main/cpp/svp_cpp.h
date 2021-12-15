@@ -28,7 +28,9 @@ struct SVP : torch::nn::Module {
     HNode* root;
     // functions
     SVP(int64_t in_features, int64_t num_classes, std::vector<std::vector<int64_t>> hstruct={});
-    torch::Tensor forward(torch::Tensor input, std::vector<std::vector<int64_t>> target={});
+    torch::Tensor forward(torch::Tensor input, std::vector<std::vector<int64_t>> target={}); /* forward pass for hierarchical model */
+    torch::Tensor forward(torch::Tensor input, torch::Tensor target={}); /* forward pass for flat model */
+    torch::Tensor predict(torch::Tensor input);
 };
 
 #endif

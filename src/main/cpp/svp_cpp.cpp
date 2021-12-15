@@ -78,6 +78,7 @@ torch::Tensor HNode::forward(torch::Tensor input, torch::nn::CrossEntropyLoss cr
         auto o = this->estimator->forward(input);
         loss = loss + criterion(o, y);
     }
+
     return loss;
 }
 
@@ -105,27 +106,55 @@ SVP::SVP(int64_t in_features, int64_t num_classes, std::vector<std::vector<int64
 torch::Tensor SVP::forward(torch::Tensor input, std::vector<std::vector<int64_t>> target) {
     torch::Tensor loss = torch::tensor({0});
     torch::nn::CrossEntropyLoss criterion;
+    // run over each sample in batch
+    for (int64_t bi=0;bi<input.size(0);++bi)
+    {
+        // begin at root
+        HNode* visit_node = this->root;
+        for (int64_t yi=0;yi<static_cast<unsigned int>(target[bi].size());++yi)
+        {
+            loss = loss + visit_node->forward(input[bi].view({1,-1}), criterion, target[bi][yi]);
+            visit_node = visit_node->chn[target[bi][yi]];
+        }
+    }
+    return loss/input.size(0);
+
+}
+
+torch::Tensor SVP::forward(torch::Tensor input, torch::Tensor target) {
+    torch::Tensor loss = torch::tensor({0});
+    torch::nn::CrossEntropyLoss criterion;
+    auto o = this->root->estimator->forward(input);
+    loss = criterion(o, target);
+
+    return loss;
+}
+
+torch::Tensor SVP::predict(torch::Tensor input) {
     if (this->root->y.size() == 0)
     {
         auto o = this->root->estimator->forward(input);
-        for (int64_t bi=0;bi<input.size(0);++bi)
-            loss = loss + criterion(o[bi], torch::tensor({target[bi][0]}));
-        return loss;
+
+        return o.argmax(1);
     }
     else
     {
+        std::vector<int64_t> prediction;
         // run over each sample in batch
         for (int64_t bi=0;bi<input.size(0);++bi)
         {
             // begin at root
             HNode* visit_node = this->root;
-            for (int64_t yi=0;yi<static_cast<unsigned int>(target[bi].size());++yi)
+            while (visit_node->y.size() > 1)
             {
-                loss = loss + visit_node->forward(input[bi].view({1,-1}), criterion, target[bi][yi]);
-                visit_node = visit_node->chn[target[bi][yi]];
+                auto o = visit_node->estimator->forward(input[bi].view({1,-1}));
+                auto max_ch_ind = o.argmax(1).data_ptr<int64_t>();
+                visit_node = visit_node->chn[static_cast<long unsigned int>(*max_ch_ind)];
             }
+            prediction.push_back(visit_node->y[0]);
         }
-        return loss;
+
+        return torch::from_blob(prediction.data(), {1,static_cast<int64_t>(prediction.size())});
     }
 }
 
@@ -133,5 +162,8 @@ PYBIND11_MODULE(svp_cpp, m) {
     using namespace pybind11::literals;
     torch::python::bind_module<SVP>(m, "SVP")
         .def(py::init<int64_t, int64_t, std::vector<std::vector<int64_t>>>(), "in_features"_a, "num_classes"_a, "hstruct"_a=py::list())
-        .def("forward", &SVP::forward, "input"_a, "target"_a=py::list());
+        //.def("forward", &SVP::forward, "input"_a, "target"_a=py::list());
+        .def("forward", py::overload_cast<torch::Tensor, torch::Tensor>(&SVP::forward))
+        .def("forward", py::overload_cast<torch::Tensor, std::vector<std::vector<int64_t>>>(&SVP::forward))
+        .def("predict", &SVP::predict, "input"_a);
 }
