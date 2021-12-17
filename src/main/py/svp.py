@@ -23,17 +23,23 @@ class SVPNet(torch.nn.Module):
     num_classes : int 
         Number of classes.
     hstruct : nested list of int, default=None
-        Hierarchical structure of the classification problem. If none,
+        Hierarchical structure of the classification problem. If None,
         a flat probabilistic model is going to be considered.
-    
+    transformer : SVPTransformer, default=None
+        Transformer needed for the SVP module. Is None in case of a flat
+        probabilistic model.
+
     Attributes
     ----------
     """
-    def __init__(self, phi, hidden_size, num_classes, hstruct=None):
+    def __init__(self, phi, hidden_size, num_classes, hstruct=None, transformer=None):
         super(SVPNet, self).__init__()
         self.phi = phi
-        self.flatten = nn.Flatten()
-        self.SVP = SVP(hidden_size, num_classes, hstruct)
+        self.hidden_size = hidden_size
+        self.num_classes = num_classes
+        self.hstruct = hstruct
+        self.transformer = transformer
+        self.SVP = SVP(self.hidden_size, self.num_classes, self.hstruct)
 
     def forward(self, x, y):
         """ Forward pass for the set-valued predictor.
@@ -42,17 +48,18 @@ class SVPNet(torch.nn.Module):
         ----------
         x : Input tensor of size (N, D) 
             Represents a batch.
-        y : Nested list of int
+        y : Nested list of int or Torch tensor
             Represents the target labels.
 
         Returns
         -------
         o : Loss tensor of size (N,)
         """
-        o = self.phi(x)
-        o = self.flatten(o)
-        o = self.SVP(o, y)
-        
+        x = self.phi(x)
+        if self.transformer is not None:
+            y = self.transfomer.transform(y, path=True)
+        o = self.SVP(x, y) 
+
         return o
 
     def predict(self, x):
@@ -65,10 +72,15 @@ class SVPNet(torch.nn.Module):
 
         Returns
         -------
-        y : Output tensor of size (N,)
+        o : Output tensor of size (N,)
         """
+        x = self.phi(x)
+        o = self.SVP.predict(x) 
+        if self.transformer is not None:
+            o = self.transformer.inverse_transform(o, path=True)
+            o = torch.tensor(o).to(x.device)
 
-        return "Not implemented yet!"
+        return o
     
     def predict_set(self, x):
         """ Predict set function for the set-valued predictor 
