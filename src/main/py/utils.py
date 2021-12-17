@@ -51,7 +51,7 @@ class SVPTransformer(TransformerMixin, BaseEstimator):
         self.k = k
         self.sep = sep
         self.random_state = random_state
-        if k is not None
+        if k is not None:
             self.hlt = FHLabelTransformer(self.k, self.sep, random_state=self.random_state)
         else:
             self.hlt = None
@@ -73,7 +73,7 @@ class SVPTransformer(TransformerMixin, BaseEstimator):
         self.classes_ = list(np.unique(y))
         if self.hlt is not None:
             self.hlt = self.hlt.fit(y)
-            self.hle = self.hle.fit(hlt.transform(y))
+            self.hle = self.hle.fit(self.hlt.transform(y))
         else:
             self.hle = self.hle.fit(y)
         # store the hierarchy

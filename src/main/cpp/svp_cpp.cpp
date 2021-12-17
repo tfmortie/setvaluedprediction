@@ -156,7 +156,7 @@ torch::Tensor SVP::predict(torch::Tensor input) {
             prediction.push_back(visit_node->y[0]);
         }
         auto opts = torch::TensorOptions().dtype(torch::kInt64);
-        output = torch::from_blob(prediction.data(), {static_cast<int64_t>(prediction.size())}, opts).to(torch::kInt64).to(input.device());
+        output = torch::from_blob(prediction.data(), {static_cast<int64_t>(prediction.size())}, opts).to(torch::kInt64).clone().to(input.device());
     }
 
     return output;

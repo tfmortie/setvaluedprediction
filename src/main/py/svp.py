@@ -55,7 +55,7 @@ class SVPNet(torch.nn.Module):
         self.num_classes = num_classes
         self.hstruct = hstruct
         self.transformer = transformer
-        self.SVP = SVP(self.hidden_size, self.num_classes, self.hstruct)
+        self.SVP = SVP(self.hidden_size, self.num_classes, ([] if self.hstruct is None else self.hstruct))
 
     def forward(self, x, y):
         """ Forward pass for the set-valued predictor.
@@ -73,7 +73,7 @@ class SVPNet(torch.nn.Module):
         """
         x = self.phi(x)
         if self.transformer is not None:
-            y = self.transfomer.transform(y, path=True)
+            y = self.transformer.transform(y.tolist(), path=True)
         o = self.SVP(x, y) 
 
         return o
@@ -93,6 +93,7 @@ class SVPNet(torch.nn.Module):
         x = self.phi(x)
         o = self.SVP.predict(x) 
         if self.transformer is not None:
+            o = [l for l in o.tolist()]
             o = self.transformer.inverse_transform(o, path=True)
             o = torch.tensor(o).to(x.device)
 
