@@ -31,6 +31,22 @@ class SVPNet(torch.nn.Module):
 
     Attributes
     ----------
+    phi : torch.nn.Module
+        Represents the neural network architecture which learns the hidden representation
+        for the probabilistic model. Must be of type torch.nn.Module with output 
+        (batch_size, hidden_size).
+    hidden_size : int
+        Size of the hidden representation which is passed to the probabilistic model.
+    num_classes : int 
+        Number of classes.
+    hstruct : nested list of int, default=None
+        Hierarchical structure of the classification problem. If None,
+        a flat probabilistic model is going to be considered.
+    transformer : SVPTransformer, default=None
+        Transformer needed for the SVP module. Is None in case of a flat
+        probabilistic model.
+    SVP : SVP module
+        SVP module.
     """
     def __init__(self, phi, hidden_size, num_classes, hstruct=None, transformer=None):
         super(SVPNet, self).__init__()

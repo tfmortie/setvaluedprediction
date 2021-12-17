@@ -42,6 +42,8 @@ class SVPTransformer(TransformerMixin, BaseEstimator):
         Flat to hierarchical label transformer.
     hle : HFLabelTransformer
         Hierarchical to flat label transformer.
+    hstruct_ : list
+        List BFS structure which represents the hierarchy in terms of encoded labels after fit.
     classes_ : list 
         Classes (original) seen during fit.
     """
@@ -74,6 +76,8 @@ class SVPTransformer(TransformerMixin, BaseEstimator):
             self.hle = self.hle.fit(hlt.transform(y))
         else:
             self.hle = self.hle.fit(y)
+        # store the hierarchy
+        self.hstruct_ = self.hle.hstruct_
 
         return self
 
@@ -301,14 +305,14 @@ class HFLabelTransformer(TransformerMixin, BaseEstimator):
     classes_ : list 
         Classes (original) seen during fit.
     tree_ : Dict
-        Dictionary which represents the taxonomy after fitting.
+        Dictionary which represents the hierarchy after fitting.
     hlbl_to_yhat_ : Dict
         Dictionary containing key:value pairs where keys are original classes seen during fit and 
         values are corresponding sets of encoded labels.
     yhat_to_hlbl_ : Dict
         Reverse dictionary of hlbl_to_yhat_
     hstruct_ : list
-        List BFS structure which represents the taxonomy in terms of encoded labels after fit.
+        List BFS structure which represents the hierarchy in terms of encoded labels after fit.
      
     Examples
     --------
