@@ -132,12 +132,15 @@ torch::Tensor SVP::forward(torch::Tensor input, torch::Tensor target) {
     return loss;
 }
 
-torch::Tensor SVP::predict(torch::Tensor input) {
-    torch::Tensor output;
+std::vector<int64_t> SVP::predict(torch::Tensor input) {
     if (this->root->y.size() == 0)
     {
         auto o = this->root->estimator->forward(input);
-        output = o.argmax(1);
+        o = o.argmax(1).to(torch::kInt64);
+        o = o.to(torch::kCPU);
+        std::vector<int64_t> prediction(o.data_ptr<int64_t>(), o.data_ptr<int64_t>() + o.numel());
+
+        return prediction;
     }
     else
     {
@@ -155,11 +158,8 @@ torch::Tensor SVP::predict(torch::Tensor input) {
             }
             prediction.push_back(visit_node->y[0]);
         }
-        auto opts = torch::TensorOptions().dtype(torch::kInt64);
-        output = torch::from_blob(prediction.data(), {static_cast<int64_t>(prediction.size())}, opts).to(torch::kInt64).clone().to(input.device());
+        return prediction;
     }
-
-    return output;
 }
 
 PYBIND11_MODULE(svp_cpp, m) {

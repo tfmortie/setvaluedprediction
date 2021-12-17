@@ -3,6 +3,9 @@ Implementation for PyTorch set-valued predictor.
 
 Author: Thomas Mortier
 Date: November 2021
+
+TODO:
+    - checks for param in predict_set
 """
 import torch
 import torch.nn as nn
@@ -62,14 +65,14 @@ class SVPNet(torch.nn.Module):
         
         Parameters
         ----------
-        x : Input tensor of size (N, D) 
+        x : input tensor of size (N, D) 
             Represents a batch.
-        y : Nested list of int or Torch tensor
+        y : nested list of int or Torch tensor
             Represents the target labels.
 
         Returns
         -------
-        o : Loss tensor of size (N,)
+        o : loss tensor of size (N,)
         """
         x = self.phi(x)
         if self.transformer is not None:
@@ -83,33 +86,33 @@ class SVPNet(torch.nn.Module):
         
         Parameters
         ----------
-        x : Input tensor of size (N, D) 
+        x : input tensor of size (N, D) 
             Represents a batch.
 
         Returns
         -------
-        o : Output tensor of size (N,)
+        o : output list of size (N,)
         """
         x = self.phi(x)
         o = self.SVP.predict(x) 
         if self.transformer is not None:
-            o = [l for l in o.tolist()]
             o = self.transformer.inverse_transform(o, path=True)
-            o = torch.tensor(o).to(x.device)
 
         return o
     
-    def predict_set(self, x):
+    def predict_set(self, x, params):
         """ Predict set function for the set-valued predictor 
         
         Parameters
         ----------
-        x : Input tensor of size (N, D) 
+        x : input tensor of size (N, D) 
             Represents a batch.
+        params : dict
+            Represnts parameters for the set-valued prediction task.
 
         Returns
         -------
-        y : Output tensor of size (N,)
+        y : nested output list of size (N,)
         """
 
         return "Not implemented yet!"
