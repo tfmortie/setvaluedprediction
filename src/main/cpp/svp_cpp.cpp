@@ -72,7 +72,6 @@ void HNode::addch(int64_t in_features, std::vector<int64_t> y) {
 
 torch::Tensor HNode::forward(torch::Tensor input, torch::nn::CrossEntropyLoss criterion, int64_t y_ind) {
     torch::Tensor loss = torch::tensor({0}).to(input.device());
-    //torch::Tensor loss = torch::tensor({0});
     torch::Tensor y = torch::tensor({y_ind}).to(input.device());
     if (this->chn.size() > 1)
     {
@@ -106,7 +105,6 @@ SVP::SVP(int64_t in_features, int64_t num_classes, std::vector<std::vector<int64
 
 torch::Tensor SVP::forward(torch::Tensor input, std::vector<std::vector<int64_t>> target) {
     torch::Tensor loss = torch::tensor({0}).to(input.device());
-    //torch::Tensor loss = torch::tensor({0}).to(input.device());
     torch::nn::CrossEntropyLoss criterion;
     // run over each sample in batch
     for (int64_t bi=0;bi<input.size(0);++bi)
@@ -168,7 +166,6 @@ PYBIND11_MODULE(svp_cpp, m) {
     using namespace pybind11::literals;
     torch::python::bind_module<SVP>(m, "SVP")
         .def(py::init<int64_t, int64_t, std::vector<std::vector<int64_t>>>(), "in_features"_a, "num_classes"_a, "hstruct"_a=py::list())
-        //.def("forward", &SVP::forward, "input"_a, "target"_a=py::list());
         .def("forward", py::overload_cast<torch::Tensor, torch::Tensor>(&SVP::forward))
         .def("forward", py::overload_cast<torch::Tensor, std::vector<std::vector<int64_t>>>(&SVP::forward))
         .def("predict", &SVP::predict, "input"_a);
