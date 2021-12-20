@@ -1,13 +1,13 @@
 /** 
-* Implementation of SVP by using the LibTorch C++ frontend.
+* SVP inference core.
 * 
 * Author: Thomas Mortier
 * Date: November 2021
 *
-*
 * TODO: 
 *   - documentation
 *   - improve runtime -> parallel processing of batch
+*   - improve mem
 */
 #include <torch/torch.h>
 #include <torch/extension.h>
@@ -289,12 +289,23 @@ std::tuple<std::vector<int64_t>, double> _predict_set(torch::Tensor input, const
         }
     }
 }
+    
+std::vector<int64_t> SVP::predict(torch::Tensor input) {
+std::vector<std::vector<int64_t>> predict_set_fb(torch::Tensor input, int64_t beta, int64_t c);
+std::vector<std::vector<int64_t>> predict_set_size(torch::Tensor input, int64_t size, int64_t c);
+std::vector<std::vector<int64_t>> predict_set_error(torch::Tensor input, int64_t error, int64_t c);
+std::vector<std::vector<int64_t>> predict_set(torch::Tensor input, const param& params);
+std::tuple<std::vector<int64_t>, double> _predict_set(torch::Tensor input, const param& params, int64_t c, std::vector<int64_t> ystar, double ystar_u, std::vector<int64_t> yhat, double yhat_p, std::priority_queue<QNode> q);
 
+/* cpp->py bindings */ 
 PYBIND11_MODULE(svp_cpp, m) {
     using namespace pybind11::literals;
     torch::python::bind_module<SVP>(m, "SVP")
-        .def(py::init<int64_t, int64_t, std::vector<std::vector<int64_t>>>(), "in_features"_a, "num_classes"_a, "hstruct"_a=py::list())
-        .def("forward", py::overload_cast<torch::Tensor, torch::Tensor>(&SVP::forward))
-        .def("forward", py::overload_cast<torch::Tensor, std::vector<std::vector<int64_t>>>(&SVP::forward))
-        .def("predict", &SVP::predict, "input"_a);
+    .def(py::init<int64_t, int64_t, std::vector<std::vector<int64_t>>>(), "in_features"_a, "num_classes"_a, "hstruct"_a=py::list())
+    .def("forward", py::overload_cast<torch::Tensor, torch::Tensor>(&SVP::forward))
+    .def("forward", py::overload_cast<torch::Tensor, std::vector<std::vector<int64_t>>>(&SVP::forward))
+    .def("predict", &SVP::predict, "input"_a)
+    .def("predict_set_fb", &SVP::predict_set_fb, "input"_a, "beta"_a, "c"_a)
+    .def("predict_set_size", &SVP::predict_set_size, "input"_a, "size"_a, "c"_a)
+    .def("predict_set_error", &SVP::predict_set_error, "input"_a, "error"_a, "c"_a);
 }
