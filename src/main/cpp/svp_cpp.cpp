@@ -171,6 +171,37 @@ std::vector<std::vector<int64_t>> predict_set_fb(torch::Tensor input, int64_t be
     p.constr = ConstraintType::NONE;
     p.beta = beta;
     p.c = c;
+    prediction = this->predict_set(input.view({1,-1}), p);
+    
+    return prediction
+}
+
+std::vector<std::vector<int64_t>> predict_set_size(torch::Tensor input, int64_t size, int64_t c) {
+    std::vector<std::vector<int64_t>> prediction;
+    // init problem
+    param p;
+    p.constr = ConstraintType::SIZE;
+    p.size = size;
+    p.c = c;
+    prediction = this->predict_set(input.view({1,-1}), p);
+    
+    return prediction
+}
+
+std::vector<std::vector<int64_t>> predict_set_error(torch::Tensor input, int64_t error, int64_t c) {
+    std::vector<std::vector<int64_t>> prediction;
+    // init problem
+    param p;
+    p.constr = ConstraintType::ERROR;
+    p.error = error;
+    p.c = c;
+    prediction = this->predict_set(input.view({1,-1}), p);
+    
+    return prediction
+}
+
+std::vector<std::vector<int64_t>> predict_set(torch::Tensor input, const param& p) {
+    std::vector<std::vector<int64_t>> prediction;
     // run over each sample in batch
     for (int64_t bi=0;bi<input.size(0);++bi)
     {
@@ -187,10 +218,7 @@ std::vector<std::vector<int64_t>> predict_set_fb(torch::Tensor input, int64_t be
     return prediction;
 }
 
-//std::vector<std::vector<int64_t>> predict_set_size(torch::Tensor input, int64_t size, int64_t c);
-//std::vector<std::vector<int64_t>> predict_set_error(torch::Tensor input, int64_t error, int64_t c);
-
-std::tuple<std::vector<int64_t>, double> predict_set(torch::Tensor input, const param& p, int64_t c, std::vector<int64_t> ystar, int64_t ystar_u, std::vector<int64_t> yhat, int64_t yhat_u, std::priority_queue<QNode> q) {
+std::tuple<std::vector<int64_t>, double> _predict_set(torch::Tensor input, const param& p, int64_t c, std::vector<int64_t> ystar, int64_t ystar_u, std::vector<int64_t> yhat, int64_t yhat_u, std::priority_queue<QNode> q) {
     while (!q.empty()) {
         QNode current {q.top()};
         q.pop();
@@ -221,14 +249,14 @@ std::tuple<std::vector<int64_t>, double> predict_set(torch::Tensor input, const 
         }
         if (p.constr == ConstraintType::NONE) {
             if (c > 1) {
-                std::tuple<std::vector<int64_t>, double> bop {this->predict_set(input, p, c-1, ystar, ystar_u, yhat, yhat_p, q)};
+                std::tuple<std::vector<int64_t>, double> bop {this->_predict_set(input, p, c-1, ystar, ystar_u, yhat, yhat_p, q)};
                 ystar = std::get<0>(bop);
                 ystar_u = std::get<1>(bop);
             }
         } else if (params.constr == ConstraintType::SIZE) {
             if (yhat.size() <= p->size) {
                 if (c > 1) {
-                    std::tuple<std::vector<int64_t>, double> bop {this->predict_set(input, p, c-1, ystar, ystar_u, yhat, yhat_p, q)};
+                    std::tuple<std::vector<int64_t>, double> bop {this->_predict_set(input, p, c-1, ystar, ystar_u, yhat, yhat_p, q)};
                     ystar = std::get<0>(bop);
                     ystar_u = std::get<1>(bop);
                 } else {
@@ -238,7 +266,7 @@ std::tuple<std::vector<int64_t>, double> predict_set(torch::Tensor input, const 
         else if (params.constr == ConstraintType::ERROR) {
             if (yhat_p < p->error) {
                 if (c > 1) {
-                    std::tuple<std::vector<int64_t>, double> bop {this->predict_set(input, p, c-1, ystar, ystar_u, yhat, yhat_p, q)};
+                    std::tuple<std::vector<int64_t>, double> bop {this->_predict_set(input, p, c-1, ystar, ystar_u, yhat, yhat_p, q)};
                     ystar = std::get<0>(bop);
                     ystar_u = std::get<1>(bop);
                 } else {

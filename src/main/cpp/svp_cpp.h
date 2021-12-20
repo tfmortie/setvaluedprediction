@@ -50,9 +50,10 @@ struct SVP : torch::nn::Module {
     std::vector<int64_t> predict(torch::Tensor input); /* top-1 prediction */
     // set-valued prediction functions
     std::vector<std::vector<int64_t>> predict_set_fb(torch::Tensor input, int64_t beta, int64_t c);
-    std::tuple<std::vector<int64_t>, double> predict_set(torch::Tensor input, const param& params, int64_t c, std::vector<int64_t> ystar, double ystar_u, std::vector<int64_t> yhat, double yhat_p, std::priority_queue<QNode> q);
-    //std::vector<std::vector<int64_t>> predict_set_size(torch::Tensor input, int64_t size, int64_t c);
-    //std::vector<std::vector<int64_t>> predict_set_error(torch::Tensor input, int64_t error, int64_t c);
+    std::vector<std::vector<int64_t>> predict_set_size(torch::Tensor input, int64_t size, int64_t c);
+    std::vector<std::vector<int64_t>> predict_set_error(torch::Tensor input, int64_t error, int64_t c);
+    std::vector<std::vector<int64_t>> predict_set(torch::Tensor input, const param& params);
+    std::tuple<std::vector<int64_t>, double> _predict_set(torch::Tensor input, const param& params, int64_t c, std::vector<int64_t> ystar, double ystar_u, std::vector<int64_t> yhat, double yhat_p, std::priority_queue<QNode> q);
 };
 
 /* PQ struct used for inference */
