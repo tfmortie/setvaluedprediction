@@ -164,7 +164,7 @@ std::vector<int64_t> SVP::predict(torch::Tensor input) {
     }
 }
 
-std::vector<std::vector<int64_t>> predict_set_fb(torch::Tensor input, int64_t beta, int64_t c) {
+std::vector<std::vector<int64_t>> SVP::predict_set_fb(torch::Tensor input, int64_t beta, int64_t c) {
     std::vector<std::vector<int64_t>> prediction;
     // init problem
     param p;
@@ -173,10 +173,10 @@ std::vector<std::vector<int64_t>> predict_set_fb(torch::Tensor input, int64_t be
     p.c = c;
     prediction = this->predict_set(input.view({1,-1}), p);
     
-    return prediction
+    return prediction;
 }
 
-std::vector<std::vector<int64_t>> predict_set_size(torch::Tensor input, int64_t size, int64_t c) {
+std::vector<std::vector<int64_t>> SVP::predict_set_size(torch::Tensor input, int64_t size, int64_t c) {
     std::vector<std::vector<int64_t>> prediction;
     // init problem
     param p;
@@ -185,10 +185,10 @@ std::vector<std::vector<int64_t>> predict_set_size(torch::Tensor input, int64_t 
     p.c = c;
     prediction = this->predict_set(input.view({1,-1}), p);
     
-    return prediction
+    return prediction;
 }
 
-std::vector<std::vector<int64_t>> predict_set_error(torch::Tensor input, int64_t error, int64_t c) {
+std::vector<std::vector<int64_t>> SVP::predict_set_error(torch::Tensor input, int64_t error, int64_t c) {
     std::vector<std::vector<int64_t>> prediction;
     // init problem
     param p;
@@ -197,10 +197,10 @@ std::vector<std::vector<int64_t>> predict_set_error(torch::Tensor input, int64_t
     p.c = c;
     prediction = this->predict_set(input.view({1,-1}), p);
     
-    return prediction
+    return prediction;
 }
 
-std::vector<std::vector<int64_t>> predict_set(torch::Tensor input, const param& p) {
+std::vector<std::vector<int64_t>> SVP::predict_set(torch::Tensor input, const param& p) {
     std::vector<std::vector<int64_t>> prediction;
     // run over each sample in batch
     for (int64_t bi=0;bi<input.size(0);++bi)
@@ -211,35 +211,36 @@ std::vector<std::vector<int64_t>> predict_set(torch::Tensor input, const param& 
         double yhat_p {0.0};
         std::priority_queue<QNode> q;
         q.push({this->root, 1.0});
-        std::tuple<std::vector<int64_t>, double> bop {this->predict_set(input[bi].view({1,-1}), param, param.c, ystar, ystar_u, yhat, yhat_p, q)};
+        std::tuple<std::vector<int64_t>, double> bop {this->_predict_set(input[bi].view({1,-1}), p, p.c, ystar, ystar_u, yhat, yhat_p, q)};
         prediction.push_back(std::get<0>(bop));
     }
 
     return prediction;
 }
 
-std::tuple<std::vector<int64_t>, double> _predict_set(torch::Tensor input, const param& p, int64_t c, std::vector<int64_t> ystar, int64_t ystar_u, std::vector<int64_t> yhat, int64_t yhat_u, std::priority_queue<QNode> q) {
+std::tuple<std::vector<int64_t>, double> SVP::_predict_set(torch::Tensor input, const param& p, int64_t c, std::vector<int64_t> ystar, double ystar_u, std::vector<int64_t> yhat, double yhat_p, std::priority_queue<QNode> q) {
+    std::tuple<std::vector<int64_t>, double> prediction;
     while (!q.empty()) {
         QNode current {q.top()};
         q.pop();
         yhat.push_back(current.node->y[0]);
-        yhat_p = yhat_p + current.node->prob;
+        yhat_p = yhat_p + current.prob;
         if (p.constr == ConstraintType::NONE) {
             double yhat_u = yhat_p*(1.0+pow(p.beta,2.0))/(static_cast<double>(yhat.size())+pow(p.beta,2.0));
             if (yhat_u >= ystar_u) {
                 ystar = yhat;
                 ystar_u = yhat_u;
             } 
-        } else if (params.constr == ConstraintType::SIZE) {
-            if (yhat.size() <= p->size) {
+        } else if (p.constr == ConstraintType::SIZE) {
+            if (static_cast<int64_t>(yhat.size()) <= p.size) {
                 double yhat_u = yhat_p;
                 if (yhat_u >= ystar_u) {
                     ystar = yhat;
                     ystar_u = yhat_u;
                 } 
             }
-        else {
-            if (yhat_p >= p->error) {
+        } else {
+            if (yhat_p >= p.error) {
                 double yhat_u = 1.0/static_cast<double>(yhat.size());
                 if (yhat_u >= ystar_u) {
                     ystar = yhat;
@@ -253,8 +254,8 @@ std::tuple<std::vector<int64_t>, double> _predict_set(torch::Tensor input, const
                 ystar = std::get<0>(bop);
                 ystar_u = std::get<1>(bop);
             }
-        } else if (params.constr == ConstraintType::SIZE) {
-            if (yhat.size() <= p->size) {
+        } else if (p.constr == ConstraintType::SIZE) {
+            if (static_cast<int64_t>(yhat.size()) <= p.size) {
                 if (c > 1) {
                     std::tuple<std::vector<int64_t>, double> bop {this->_predict_set(input, p, c-1, ystar, ystar_u, yhat, yhat_p, q)};
                     ystar = std::get<0>(bop);
@@ -263,8 +264,8 @@ std::tuple<std::vector<int64_t>, double> _predict_set(torch::Tensor input, const
                     break;
                 }
             }
-        else if (params.constr == ConstraintType::ERROR) {
-            if (yhat_p < p->error) {
+        } else if (p.constr == ConstraintType::ERROR) {
+            if (yhat_p < p.error) {
                 if (c > 1) {
                     std::tuple<std::vector<int64_t>, double> bop {this->_predict_set(input, p, c-1, ystar, ystar_u, yhat, yhat_p, q)};
                     ystar = std::get<0>(bop);
@@ -277,35 +278,33 @@ std::tuple<std::vector<int64_t>, double> _predict_set(torch::Tensor input, const
         if (current.node->y.size() > 1) {
             // forward step
             auto o = current.node->estimator->forward(input);
-            o = torch::softmax(o);
-            for (int64_t i = 0; i<current.node->chn.size(); ++i)
+            o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1));
+            for (int64_t i = 0; i<static_cast<int64_t>(current.node->chn.size()); ++i)
             {
                 HNode* c_node {current.node->chn[i]};
-                double c_node_prob {current.prob*o.item<double>(i)};
+                double c_node_prob {current.prob*o[i].item<double>()};
                 q.push({c_node, c_node_prob});
             }
         } else {
             break;
         }
     }
+    std::get<0>(prediction) = ystar;
+    std::get<1>(prediction) = ystar_u;
+
+    return prediction;
+
 }
     
-std::vector<int64_t> SVP::predict(torch::Tensor input) {
-std::vector<std::vector<int64_t>> predict_set_fb(torch::Tensor input, int64_t beta, int64_t c);
-std::vector<std::vector<int64_t>> predict_set_size(torch::Tensor input, int64_t size, int64_t c);
-std::vector<std::vector<int64_t>> predict_set_error(torch::Tensor input, int64_t error, int64_t c);
-std::vector<std::vector<int64_t>> predict_set(torch::Tensor input, const param& params);
-std::tuple<std::vector<int64_t>, double> _predict_set(torch::Tensor input, const param& params, int64_t c, std::vector<int64_t> ystar, double ystar_u, std::vector<int64_t> yhat, double yhat_p, std::priority_queue<QNode> q);
-
 /* cpp->py bindings */ 
 PYBIND11_MODULE(svp_cpp, m) {
     using namespace pybind11::literals;
     torch::python::bind_module<SVP>(m, "SVP")
-    .def(py::init<int64_t, int64_t, std::vector<std::vector<int64_t>>>(), "in_features"_a, "num_classes"_a, "hstruct"_a=py::list())
-    .def("forward", py::overload_cast<torch::Tensor, torch::Tensor>(&SVP::forward))
-    .def("forward", py::overload_cast<torch::Tensor, std::vector<std::vector<int64_t>>>(&SVP::forward))
-    .def("predict", &SVP::predict, "input"_a)
-    .def("predict_set_fb", &SVP::predict_set_fb, "input"_a, "beta"_a, "c"_a)
-    .def("predict_set_size", &SVP::predict_set_size, "input"_a, "size"_a, "c"_a)
-    .def("predict_set_error", &SVP::predict_set_error, "input"_a, "error"_a, "c"_a);
+        .def(py::init<int64_t, int64_t, std::vector<std::vector<int64_t>>>(), "in_features"_a, "num_classes"_a, "hstruct"_a=py::list())
+        .def("forward", py::overload_cast<torch::Tensor, torch::Tensor>(&SVP::forward))
+        .def("forward", py::overload_cast<torch::Tensor, std::vector<std::vector<int64_t>>>(&SVP::forward))
+        .def("predict", &SVP::predict, "input"_a)
+        .def("predict_set_fb", &SVP::predict_set_fb, "input"_a, "beta"_a, "c"_a)
+        .def("predict_set_size", &SVP::predict_set_size, "input"_a, "size"_a, "c"_a)
+        .def("predict_set_error", &SVP::predict_set_error, "input"_a, "error"_a, "c"_a);
 }

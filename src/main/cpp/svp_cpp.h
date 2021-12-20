@@ -39,6 +39,15 @@ struct HNode : torch::nn::Module {
     torch::Tensor forward(torch::Tensor input, torch::nn::CrossEntropyLoss criterion, int64_t y_ind={});
 };
 
+/* PQ struct used for inference */
+struct QNode
+{
+    HNode* node;
+    double prob;
+    /* comparator */
+    bool operator<(const QNode& n) const { return prob < n.prob;}
+};
+
 /* class which represents an SVP object */
 struct SVP : torch::nn::Module {
     // attributes
@@ -54,15 +63,6 @@ struct SVP : torch::nn::Module {
     std::vector<std::vector<int64_t>> predict_set_error(torch::Tensor input, int64_t error, int64_t c);
     std::vector<std::vector<int64_t>> predict_set(torch::Tensor input, const param& params);
     std::tuple<std::vector<int64_t>, double> _predict_set(torch::Tensor input, const param& params, int64_t c, std::vector<int64_t> ystar, double ystar_u, std::vector<int64_t> yhat, double yhat_p, std::priority_queue<QNode> q);
-};
-
-/* PQ struct used for inference */
-struct QNode
-{
-    HNode* node;
-    double prob;
-    /* comparator */
-    bool operator<(const QNode& n) const { return prob < n.prob;}
 };
 
 #endif
