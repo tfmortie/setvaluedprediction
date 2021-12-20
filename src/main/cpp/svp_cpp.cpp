@@ -13,6 +13,8 @@
 #include <torch/extension.h>
 #include <iostream>
 #include <queue>
+#include <math.h>
+#include <tuple>
 #include <sstream>
 #include <string>
 #include <chrono>
@@ -159,6 +161,104 @@ std::vector<int64_t> SVP::predict(torch::Tensor input) {
             prediction.push_back(visit_node->y[0]);
         }
         return prediction;
+    }
+}
+
+std::vector<std::vector<int64_t>> predict_set_fb(torch::Tensor input, int64_t beta, int64_t c) {
+    std::vector<std::vector<int64_t>> prediction;
+    // init problem
+    param p;
+    p.constr = ConstraintType::NONE;
+    p.beta = beta;
+    p.c = c;
+    // run over each sample in batch
+    for (int64_t bi=0;bi<input.size(0);++bi)
+    {
+        std::vector<int64_t> ystar;
+        double ystar_u {0.0};
+        std::vector<int64_t> yhat;
+        double yhat_p {0.0};
+        std::priority_queue<QNode> q;
+        q.push({this->root, 1.0});
+        std::tuple<std::vector<int64_t>, double> bop {this->predict_set(input[bi].view({1,-1}), param, param.c, ystar, ystar_u, yhat, yhat_p, q)};
+        prediction.push_back(std::get<0>(bop));
+    }
+
+    return prediction;
+}
+
+//std::vector<std::vector<int64_t>> predict_set_size(torch::Tensor input, int64_t size, int64_t c);
+//std::vector<std::vector<int64_t>> predict_set_error(torch::Tensor input, int64_t error, int64_t c);
+
+std::tuple<std::vector<int64_t>, double> predict_set(torch::Tensor input, const param& p, int64_t c, std::vector<int64_t> ystar, int64_t ystar_u, std::vector<int64_t> yhat, int64_t yhat_u, std::priority_queue<QNode> q) {
+    while (!q.empty()) {
+        QNode current {q.top()};
+        q.pop();
+        yhat.push_back(current.node->y[0]);
+        yhat_p = yhat_p + current.node->prob;
+        if (p.constr == ConstraintType::NONE) {
+            double yhat_u = yhat_p*(1.0+pow(p.beta,2.0))/(static_cast<double>(yhat.size())+pow(p.beta,2.0));
+            if (yhat_u >= ystar_u) {
+                ystar = yhat;
+                ystar_u = yhat_u;
+            } 
+        } else if (params.constr == ConstraintType::SIZE) {
+            if (yhat.size() <= p->size) {
+                double yhat_u = yhat_p;
+                if (yhat_u >= ystar_u) {
+                    ystar = yhat;
+                    ystar_u = yhat_u;
+                } 
+            }
+        else {
+            if (yhat_p >= p->error) {
+                double yhat_u = 1.0/static_cast<double>(yhat.size());
+                if (yhat_u >= ystar_u) {
+                    ystar = yhat;
+                    ystar_u = yhat_u;
+                } 
+            }
+        }
+        if (p.constr == ConstraintType::NONE) {
+            if (c > 1) {
+                std::tuple<std::vector<int64_t>, double> bop {this->predict_set(input, p, c-1, ystar, ystar_u, yhat, yhat_p, q)};
+                ystar = std::get<0>(bop);
+                ystar_u = std::get<1>(bop);
+            }
+        } else if (params.constr == ConstraintType::SIZE) {
+            if (yhat.size() <= p->size) {
+                if (c > 1) {
+                    std::tuple<std::vector<int64_t>, double> bop {this->predict_set(input, p, c-1, ystar, ystar_u, yhat, yhat_p, q)};
+                    ystar = std::get<0>(bop);
+                    ystar_u = std::get<1>(bop);
+                } else {
+                    break;
+                }
+            }
+        else if (params.constr == ConstraintType::ERROR) {
+            if (yhat_p < p->error) {
+                if (c > 1) {
+                    std::tuple<std::vector<int64_t>, double> bop {this->predict_set(input, p, c-1, ystar, ystar_u, yhat, yhat_p, q)};
+                    ystar = std::get<0>(bop);
+                    ystar_u = std::get<1>(bop);
+                } else {
+                    break;
+                }
+            }
+        }
+        if (current.node->y.size() > 1) {
+            // forward step
+            auto o = current.node->estimator->forward(input);
+            o = torch::softmax(o);
+            for (int64_t i = 0; i<current.node->chn.size(); ++i)
+            {
+                HNode* c_node {current.node->chn[i]};
+                double c_node_prob {current.prob*o.item<double>(i)};
+                q.push({c_node, c_node_prob});
+            }
+        } else {
+            break;
+        }
     }
 }
 

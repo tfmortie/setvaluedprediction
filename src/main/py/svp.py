@@ -5,7 +5,7 @@ Author: Thomas Mortier
 Date: November 2021
 
 TODO:
-    - checks for param in predict_set
+    - improve checks for param in predict_set
 """
 import torch
 import torch.nn as nn
@@ -74,9 +74,12 @@ class SVPNet(torch.nn.Module):
         -------
         o : loss tensor of size (N,)
         """
+        # get embeddings
         x = self.phi(x)
+        # inverse transform labels
         if self.transformer is not None:
             y = self.transformer.transform(y.tolist(), path=True)
+        # calculate loss
         o = self.SVP(x, y) 
 
         return o
@@ -93,11 +96,13 @@ class SVPNet(torch.nn.Module):
         -------
         o : output list of size (N,)
         """
+        # get embeddings
         x = self.phi(x)
+        # get top-1 predictions
         o = self.SVP.predict(x) 
+        # inverse transform
         if self.transformer is not None:
             o = self.transformer.inverse_transform(o, path=True)
-
         return o
     
     def predict_set(self, x, params):
@@ -108,11 +113,44 @@ class SVPNet(torch.nn.Module):
         x : input tensor of size (N, D) 
             Represents a batch.
         params : dict
-            Represnts parameters for the set-valued prediction task.
+            Represents parameters for the set-valued prediction task.
 
         Returns
         -------
-        y : nested output list of size (N,)
+        o : nested output list of size (N,)
         """
+        # get embeddings
+        x = self.phi(x)
+        # process params and get set
+        try:
+            c = int(params["c"])
+        except ValueError:
+            raise ValueError("Invalid representation complexity {0}. Must be integer.".format(params["c"]))
+        if params["constraint"] == "none":
+            try:
+                beta = int(params["beta"])
+            except ValueError:
+                raise ValueError("Invalid beta {0}. Must be positive integer.".format(params["beta"]))
+            o_t = self.SVP.predict_set_fb(x, beta, c)
+        elif params["constraint"] == "size":
+            try:
+                size = int(params["size"])
+            except ValueError:
+                raise ValueError("Invalid size {0}. Must be positive integer.".format(params["size"]))
+            o_t = self.SVP.predict_set_size(x, size, c)
+        elif params["constraint"] == "error":
+            try:
+                error = float(params["error"])
+            except ValueError:
+                raise ValueError("Invalid error {0}. Must be a real number in [0,1].".format(params["error"]))
+            o_t = self.SVP.predict_set_error(x, error, c)
+        else: 
+            raise ValueError("Invalid constraint {0}! Valid options: {none, size, error}.".format(params["constraint"]))
+        # inverse transform sets
+        o = [] 
+        for o_t_i in o_t:
+            if self.transformer is not None:
+                o_t_i = self.transformer.inverse_transform(o_t_i, path=True)
+            o.append(o_t_i)
 
-        return "Not implemented yet!"
+        return o
