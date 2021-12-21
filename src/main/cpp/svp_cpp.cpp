@@ -1,14 +1,16 @@
 /** 
-* SVP inference core.
+* SVP inference C++ core.
 * 
 * Author: Thomas Mortier
 * Date: November 2021
 *
 * TODO: 
+*   - check if we can add svp params as argument to init (avoids a couple of potential issues)
+*   - clean code
 *   - documentation
 *   - comments
 *   - improve runtime -> parallel processing of batch
-*   - improve mem
+*   - improve mem consumption
 */
 #include <torch/torch.h>
 #include <torch/extension.h>
@@ -88,22 +90,23 @@ torch::Tensor HNode::forward(torch::Tensor input, torch::nn::CrossEntropyLoss cr
 SVP::SVP(int64_t in_features, int64_t num_classes, std::vector<std::vector<int64_t>> hstruct) {
     // first create root node 
     this->root = new HNode();
-    // check if we need a softmax or h-softmax
-    if (hstruct.size() == 0) {
-        this->root->estimator = this->register_module("linear", torch::nn::Linear(in_features,num_classes));
-        this->root->y = {};
-        this->root->chn = {};
-        this->root->par = this;
-    }
-    else
-    {
-        // construct tree for h-softmax
-        this->root->y = hstruct[0];
-        this->root->chn = {};
-        this->root->par = this;
-        for (int64_t i=1; i<static_cast<int64_t>(hstruct.size()); ++i)
-            this->root->addch(in_features, hstruct[i]);   
-    }
+    // construct tree for h-softmax
+    this->root->y = hstruct[0];
+    this->root->chn = {};
+    this->root->par = this;
+    for (int64_t i=1; i<static_cast<int64_t>(hstruct.size()); ++i)
+        this->root->addch(in_features, hstruct[i]);   
+}
+
+SVP::SVP(int64_t in_features, int64_t num_classes, torch::Tensor hstruct) {
+    this->num_classes = num_classes;
+    this->hstruct = hstruct;
+    // create root node 
+    this->root = new HNode();
+    this->root->estimator = this->register_module("linear", torch::nn::Linear(in_features,this->num_classes));
+    this->root->y = {};
+    this->root->chn = {};
+    this->root->par = this;
 }
 
 torch::Tensor SVP::forward(torch::Tensor input, std::vector<std::vector<int64_t>> target) {
@@ -203,8 +206,119 @@ std::vector<std::vector<int64_t>> SVP::predict_set_error(torch::Tensor input, do
 
 std::vector<std::vector<int64_t>> SVP::predict_set(torch::Tensor input, const param& p) {
     std::vector<std::vector<int64_t>> prediction;
+    if ((this->root->y.size() == 0) && (p.c == this->num_classes)) {
+        prediction = this->gsvbop(input, p);
+    } else if ((this->root->y.size() == 0) && (p.c < this->num_classes)) {
+        prediction = this->gsvbop_r(input, p);
+    } else if ((this->root->y.size() > 0) && (p.c == this->num_classes)) {
+        prediction = this->gsvbop_hf(input, p);
+    } else {
+        prediction = this->gsvbop_hf_r(input, p);
+    }
+    
+    return prediction;
+}
+
+std::vector<std::vector<int64_t>> SVP::gsvbop(torch::Tensor input, const param& p) {
+    std::vector<std::vector<int64_t>> prediction;
+    auto o = this->root->estimator->forward(input);
+    o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1));
+    // sort probabilities in decreasing order
+    torch::Tensor idx {torch::argsort(o, 1, true).to(torch::kCPU)};
     // run over each sample in batch
-    for (int64_t bi=0;bi<input.size(0);++bi)
+    for (int64_t bi=0; bi<input.size(0); ++bi)
+    {
+        std::vector<int64_t> yhat;
+        double yhat_p {0.0};
+        std::vector<int64_t> ystar;
+        double ystar_u {0.0};
+        for (int64_t yi=0; yi<idx.size(1); ++yi)
+        {
+            yhat.push_back(idx[bi][yi].item<int64_t>());
+            yhat_p += o[bi][idx[bi][yi]].to(torch::kCPU).item<double>();
+            if (p.constr == ConstraintType::NONE) {
+                double yhat_u {yhat_p*(1.0+pow(p.beta,2.0))/(yi+1+pow(p.beta,2.0))};
+                if (yhat_u >= ystar_u) {
+                    ystar = yhat;
+                    ystar_u = yhat_u;
+                } else {
+                    break;
+                }
+            } else if (p.constr == ConstraintType::SIZE) {
+                if (yi+1 > p.size) {
+                    break;
+                } else {
+                    if (yhat_p >= ystar_u) {
+                        ystar = yhat;
+                        ystar_u = yhat_p;
+                    }
+                }
+            } else {
+                if (yhat_p >= 1-p.error) {
+                    ystar = yhat;
+                    break;
+                }
+            }
+        }
+        prediction.push_back(ystar);
+    }
+
+    return prediction;
+}
+
+std::vector<std::vector<int64_t>> SVP::gsvbop_r(torch::Tensor input, const param& p) {
+    std::vector<std::vector<int64_t>> prediction;
+    auto o = this->root->estimator->forward(input);
+    o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1));
+    o = torch::matmul(o,this->hstruct.t().to(torch::kFloat32));
+    // run over each sample in batch
+    for (int64_t bi=0; bi<input.size(0); ++bi)
+    {
+        std::vector<int64_t> pred;
+        int64_t si_optimal {0};
+        double si_optimal_u {0.0};
+        for (int64_t si=0; si<o.size(1); ++si)
+        {
+            double si_curr_p {o[bi][si].to(torch::kCPU).item<double>()};
+            if (p.constr == ConstraintType::NONE) {
+                double si_curr_size {this->hstruct.index({si,"..."}).sum().to(torch::kCPU).item<double>()};
+                double si_curr_u {si_curr_p*(1.0+pow(p.beta,2.0))/(si_curr_size+pow(p.beta,2.0))};
+                if (si_curr_u >= si_optimal_u) {
+                    si_optimal = si;
+                    si_optimal_u = si_curr_u;
+                }
+            } else if (p.constr == ConstraintType::SIZE) {
+                if (si_curr_p >= si_optimal_u) {
+                    si_optimal = si;
+                    si_optimal_u = si_curr_p;
+                }
+            } else {
+                if (si_curr_p >= 1.0-p.error) {
+                    // also calculate set size
+                    double si_curr_u {1.0/this->hstruct.index({si,"..."}).sum().to(torch::kCPU).item<double>()};
+                    if (si_curr_u >= si_optimal_u) {
+                        si_optimal = si;
+                        si_optimal_u = si_curr_u;
+                    }
+                }
+            }
+        }
+        // we have found the optimal solution, hence, update
+        for (int64_t si=0; si<this->hstruct.size(1); ++si)
+        {
+            if (this->hstruct.index({si_optimal,si}).to(torch::kCPU).item<int>() == 1)
+                pred.push_back(si);
+        }
+        prediction.push_back(pred);
+    }
+
+    return prediction;
+}
+
+std::vector<std::vector<int64_t>> SVP::gsvbop_hf(torch::Tensor input, const param& p) {
+    std::vector<std::vector<int64_t>> prediction;
+    // run over each sample in batch
+    for (int64_t bi=0; bi<input.size(0); ++bi)
     {
         std::vector<int64_t> ystar;
         double ystar_u {0.0};
@@ -212,14 +326,72 @@ std::vector<std::vector<int64_t>> SVP::predict_set(torch::Tensor input, const pa
         double yhat_p {0.0};
         std::priority_queue<QNode> q;
         q.push({this->root, 1.0});
-        std::tuple<std::vector<int64_t>, double> bop {this->_predict_set(input[bi].view({1,-1}), p, p.c, ystar, ystar_u, yhat, yhat_p, q)};
+        while (!q.empty()) {
+            QNode current {q.top()};
+            q.pop();
+            if (current.node->y.size() == 1) {
+                // update solution
+                yhat.push_back(current.node->y[0]);
+                yhat_p += current.prob;
+                if (p.constr == ConstraintType::NONE) {
+                    double yhat_u {yhat_p*(1.0+pow(p.beta,2.0))/(yhat.size()+pow(p.beta,2.0))};
+                    if (yhat_u >= ystar_u) {
+                        ystar = yhat;
+                        ystar_u = yhat_u;
+                    } else {
+                        break;
+                    }
+                } else if (p.constr == ConstraintType::SIZE) {
+                    if (static_cast<int64_t>(yhat.size()) > p.size) {
+                        break;
+                    } else {
+                        if (yhat_p >= ystar_u) {
+                            ystar = yhat;
+                            ystar_u = yhat_p;
+                        }
+                    }
+                } else {
+                    if (yhat_p >= 1-p.error) {
+                        ystar = yhat;
+                        break;
+                    }
+                }
+            } else {
+                // forward step
+                auto o = current.node->estimator->forward(input[bi].view({1,-1}));
+                o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1)).to(torch::kCPU);
+                for (int64_t i = 0; i<static_cast<int64_t>(current.node->chn.size()); ++i)
+                {
+                    HNode* c_node {current.node->chn[i]};
+                    q.push({c_node, current.prob*o[0][i].item<double>()});
+                }
+            }
+        }
+        prediction.push_back(ystar);
+    }
+
+    return prediction;
+}
+
+std::vector<std::vector<int64_t>> SVP::gsvbop_hf_r(torch::Tensor input, const param& p) {
+    std::vector<std::vector<int64_t>> prediction;
+    // run over each sample in batch
+    for (int64_t bi=0; bi<input.size(0); ++bi)
+    {
+        std::vector<int64_t> ystar;
+        double ystar_u {0.0};
+        std::vector<int64_t> yhat;
+        double yhat_p {0.0};
+        std::priority_queue<QNode> q;
+        q.push({this->root, 1.0});
+        std::tuple<std::vector<int64_t>, double> bop {this->_gsvbop_hf_r(input[bi].view({1,-1}), p, p.c, ystar, ystar_u, yhat, yhat_p, q)};
         prediction.push_back(std::get<0>(bop));
     }
 
     return prediction;
 }
 
-std::tuple<std::vector<int64_t>, double> SVP::_predict_set(torch::Tensor input, const param& p, int64_t c, std::vector<int64_t> ystar, double ystar_u, std::vector<int64_t> yhat, double yhat_p, std::priority_queue<QNode> q) {
+std::tuple<std::vector<int64_t>, double> SVP::_gsvbop_hf_r(torch::Tensor input, const param& p, int64_t c, std::vector<int64_t> ystar, double ystar_u, std::vector<int64_t> yhat, double yhat_p, std::priority_queue<QNode> q) {
     std::tuple<std::vector<int64_t>, double> prediction;
     while (!q.empty()) {
         std::vector<int64_t> ycur {yhat};
@@ -245,7 +417,7 @@ std::tuple<std::vector<int64_t>, double> SVP::_predict_set(torch::Tensor input, 
                 } 
             }
         } else {
-            if (ycur_p >= p.error) {
+            if (ycur_p >= 1.0-p.error) {
                 double ycur_u = 1.0/static_cast<double>(ycur.size());
                 if (ycur_u >= ystar_u) {
                     ystar = ycur;
@@ -255,14 +427,14 @@ std::tuple<std::vector<int64_t>, double> SVP::_predict_set(torch::Tensor input, 
         }
         if (p.constr == ConstraintType::NONE) {
             if (c > 1) {
-                std::tuple<std::vector<int64_t>, double> bop {this->_predict_set(input, p, c-1, ystar, ystar_u, ycur, ycur_p, q)};
+                std::tuple<std::vector<int64_t>, double> bop {this->_gsvbop_hf_r(input, p, c-1, ystar, ystar_u, ycur, ycur_p, q)};
                 ystar = std::get<0>(bop);
                 ystar_u = std::get<1>(bop);
             }
         } else if (p.constr == ConstraintType::SIZE) {
             if (static_cast<int64_t>(ycur.size()) <= p.size) {
                 if (c > 1) {
-                    std::tuple<std::vector<int64_t>, double> bop {this->_predict_set(input, p, c-1, ystar, ystar_u, ycur, ycur_p, q)};
+                    std::tuple<std::vector<int64_t>, double> bop {this->_gsvbop_hf_r(input, p, c-1, ystar, ystar_u, ycur, ycur_p, q)};
                     ystar = std::get<0>(bop);
                     ystar_u = std::get<1>(bop);
                 } else {
@@ -270,9 +442,9 @@ std::tuple<std::vector<int64_t>, double> SVP::_predict_set(torch::Tensor input, 
                 }
             }
         } else if (p.constr == ConstraintType::ERROR) {
-            if (ycur_p < p.error) {
+            if (ycur_p < 1.0-p.error) {
                 if (c > 1) {
-                    std::tuple<std::vector<int64_t>, double> bop {this->_predict_set(input, p, c-1, ystar, ystar_u, ycur, ycur_p, q)};
+                    std::tuple<std::vector<int64_t>, double> bop {this->_gsvbop_hf_r(input, p, c-1, ystar, ystar_u, ycur, ycur_p, q)};
                     ystar = std::get<0>(bop);
                     ystar_u = std::get<1>(bop);
                 } else {
@@ -304,6 +476,7 @@ PYBIND11_MODULE(svp_cpp, m) {
     using namespace pybind11::literals;
     torch::python::bind_module<SVP>(m, "SVP")
         .def(py::init<int64_t, int64_t, std::vector<std::vector<int64_t>>>(), "in_features"_a, "num_classes"_a, "hstruct"_a=py::list())
+        .def(py::init<int64_t, int64_t, torch::Tensor>(), "in_features"_a, "num_classes"_a, "hstruct"_a)
         .def("forward", py::overload_cast<torch::Tensor, torch::Tensor>(&SVP::forward))
         .def("forward", py::overload_cast<torch::Tensor, std::vector<std::vector<int64_t>>>(&SVP::forward))
         .def("predict", &SVP::predict, "input"_a)

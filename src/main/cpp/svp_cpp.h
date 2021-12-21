@@ -51,9 +51,12 @@ struct QNode
 /* class which represents an SVP object */
 struct SVP : torch::nn::Module {
     // attributes
+    int64_t num_classes;
+    torch::Tensor hstruct;
     HNode* root;
     // forward-pass functions
     SVP(int64_t in_features, int64_t num_classes, std::vector<std::vector<int64_t>> hstruct={});
+    SVP(int64_t in_features, int64_t num_classes, torch::Tensor hstruct);
     torch::Tensor forward(torch::Tensor input, std::vector<std::vector<int64_t>> target={}); /* forward pass for hierarchical model */
     torch::Tensor forward(torch::Tensor input, torch::Tensor target={}); /* forward pass for flat model */
     std::vector<int64_t> predict(torch::Tensor input); /* top-1 prediction */
@@ -62,7 +65,11 @@ struct SVP : torch::nn::Module {
     std::vector<std::vector<int64_t>> predict_set_size(torch::Tensor input, int64_t size, int64_t c);
     std::vector<std::vector<int64_t>> predict_set_error(torch::Tensor input, double error, int64_t c);
     std::vector<std::vector<int64_t>> predict_set(torch::Tensor input, const param& params);
-    std::tuple<std::vector<int64_t>, double> _predict_set(torch::Tensor input, const param& params, int64_t c, std::vector<int64_t> ystar, double ystar_u, std::vector<int64_t> yhat, double yhat_p, std::priority_queue<QNode> q);
+    std::vector<std::vector<int64_t>> gsvbop(torch::Tensor input, const param& params);
+    std::vector<std::vector<int64_t>> gsvbop_r(torch::Tensor input, const param& params);
+    std::vector<std::vector<int64_t>> gsvbop_hf(torch::Tensor input, const param& params);
+    std::vector<std::vector<int64_t>> gsvbop_hf_r(torch::Tensor input, const param& params);
+    std::tuple<std::vector<int64_t>, double> _gsvbop_hf_r(torch::Tensor input, const param& params, int64_t c, std::vector<int64_t> ystar, double ystar_u, std::vector<int64_t> yhat, double yhat_p, std::priority_queue<QNode> q);
 };
 
 #endif

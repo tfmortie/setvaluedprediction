@@ -58,7 +58,7 @@ class SVPNet(torch.nn.Module):
         self.num_classes = num_classes
         self.hstruct = hstruct
         self.transformer = transformer
-        self.SVP = SVP(self.hidden_size, self.num_classes, ([] if self.hstruct is None else self.hstruct))
+        self.SVP = SVP(self.hidden_size, self.num_classes, self.hstruct)
 
     def forward(self, x, y):
         """ Forward pass for the set-valued predictor.
@@ -67,7 +67,7 @@ class SVPNet(torch.nn.Module):
         ----------
         x : input tensor of size (N, D) 
             Represents a batch.
-        y : nested list of int or Torch tensor
+        y : Torch tensor
             Represents the target labels.
 
         Returns
@@ -77,10 +77,12 @@ class SVPNet(torch.nn.Module):
         # get embeddings
         x = self.phi(x)
         # inverse transform labels
-        if self.transformer is not None:
-            y = self.transformer.transform(y.tolist(), path=True)
-        # calculate loss
-        o = self.SVP(x, y) 
+        if type(self.hstruct) is torch.Tensor:
+            y = self.transformer.transform(y.tolist(), False)
+            y = torch.Tensor(sum(y,[])).long().to(x.device)
+        else:
+            y = self.transformer.transform(y.tolist(), True)
+        o = self.SVP(x, y)
 
         return o
 
@@ -100,9 +102,8 @@ class SVPNet(torch.nn.Module):
         x = self.phi(x)
         # get top-1 predictions
         o = self.SVP.predict(x) 
-        # inverse transform
-        if self.transformer is not None:
-            o = self.transformer.inverse_transform(o, path=True)
+        o = self.transformer.inverse_transform(o)
+
         return o
     
     def predict_set(self, x, params):
@@ -149,8 +150,7 @@ class SVPNet(torch.nn.Module):
         # inverse transform sets
         o = [] 
         for o_t_i in o_t:
-            if self.transformer is not None:
-                o_t_i = self.transformer.inverse_transform(o_t_i, path=True)
+            o_t_i = self.transformer.inverse_transform(o_t_i)
             o.append(o_t_i)
 
         return o
