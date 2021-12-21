@@ -6,6 +6,7 @@
 *
 * TODO: 
 *   - documentation
+*   - comments
 *   - improve runtime -> parallel processing of batch
 *   - improve mem
 */
@@ -171,7 +172,7 @@ std::vector<std::vector<int64_t>> SVP::predict_set_fb(torch::Tensor input, int64
     p.constr = ConstraintType::NONE;
     p.beta = beta;
     p.c = c;
-    prediction = this->predict_set(input.view({1,-1}), p);
+    prediction = this->predict_set(input, p);
     
     return prediction;
 }
@@ -183,19 +184,19 @@ std::vector<std::vector<int64_t>> SVP::predict_set_size(torch::Tensor input, int
     p.constr = ConstraintType::SIZE;
     p.size = size;
     p.c = c;
-    prediction = this->predict_set(input.view({1,-1}), p);
+    prediction = this->predict_set(input, p);
     
     return prediction;
 }
 
-std::vector<std::vector<int64_t>> SVP::predict_set_error(torch::Tensor input, int64_t error, int64_t c) {
+std::vector<std::vector<int64_t>> SVP::predict_set_error(torch::Tensor input, double error, int64_t c) {
     std::vector<std::vector<int64_t>> prediction;
     // init problem
     param p;
     p.constr = ConstraintType::ERROR;
     p.error = error;
     p.c = c;
-    prediction = this->predict_set(input.view({1,-1}), p);
+    prediction = this->predict_set(input, p);
     
     return prediction;
 }
@@ -221,43 +222,47 @@ std::vector<std::vector<int64_t>> SVP::predict_set(torch::Tensor input, const pa
 std::tuple<std::vector<int64_t>, double> SVP::_predict_set(torch::Tensor input, const param& p, int64_t c, std::vector<int64_t> ystar, double ystar_u, std::vector<int64_t> yhat, double yhat_p, std::priority_queue<QNode> q) {
     std::tuple<std::vector<int64_t>, double> prediction;
     while (!q.empty()) {
+        std::vector<int64_t> ycur {yhat};
+        double ycur_p {yhat_p};
         QNode current {q.top()};
         q.pop();
-        yhat.push_back(current.node->y[0]);
-        yhat_p = yhat_p + current.prob;
+        for (int64_t i=0; i<static_cast<int64_t>(current.node->y.size()); ++i) {
+            ycur.push_back(current.node->y[i]);
+        }
+        ycur_p = ycur_p + current.prob;
         if (p.constr == ConstraintType::NONE) {
-            double yhat_u = yhat_p*(1.0+pow(p.beta,2.0))/(static_cast<double>(yhat.size())+pow(p.beta,2.0));
-            if (yhat_u >= ystar_u) {
-                ystar = yhat;
-                ystar_u = yhat_u;
-            } 
+            double ycur_u = ycur_p*(1.0+pow(p.beta,2.0))/(static_cast<double>(ycur.size())+pow(p.beta,2.0));
+            if (ycur_u >= ystar_u) {
+                ystar = ycur;
+                ystar_u = ycur_u;
+            }
         } else if (p.constr == ConstraintType::SIZE) {
-            if (static_cast<int64_t>(yhat.size()) <= p.size) {
-                double yhat_u = yhat_p;
-                if (yhat_u >= ystar_u) {
-                    ystar = yhat;
-                    ystar_u = yhat_u;
+            if (static_cast<int64_t>(ycur.size()) <= p.size) {
+                double ycur_u = ycur_p;
+                if (ycur_u >= ystar_u) {
+                    ystar = ycur;
+                    ystar_u = ycur_u;
                 } 
             }
         } else {
-            if (yhat_p >= p.error) {
-                double yhat_u = 1.0/static_cast<double>(yhat.size());
-                if (yhat_u >= ystar_u) {
-                    ystar = yhat;
-                    ystar_u = yhat_u;
+            if (ycur_p >= p.error) {
+                double ycur_u = 1.0/static_cast<double>(ycur.size());
+                if (ycur_u >= ystar_u) {
+                    ystar = ycur;
+                    ystar_u = ycur_u;
                 } 
             }
         }
         if (p.constr == ConstraintType::NONE) {
             if (c > 1) {
-                std::tuple<std::vector<int64_t>, double> bop {this->_predict_set(input, p, c-1, ystar, ystar_u, yhat, yhat_p, q)};
+                std::tuple<std::vector<int64_t>, double> bop {this->_predict_set(input, p, c-1, ystar, ystar_u, ycur, ycur_p, q)};
                 ystar = std::get<0>(bop);
                 ystar_u = std::get<1>(bop);
             }
         } else if (p.constr == ConstraintType::SIZE) {
-            if (static_cast<int64_t>(yhat.size()) <= p.size) {
+            if (static_cast<int64_t>(ycur.size()) <= p.size) {
                 if (c > 1) {
-                    std::tuple<std::vector<int64_t>, double> bop {this->_predict_set(input, p, c-1, ystar, ystar_u, yhat, yhat_p, q)};
+                    std::tuple<std::vector<int64_t>, double> bop {this->_predict_set(input, p, c-1, ystar, ystar_u, ycur, ycur_p, q)};
                     ystar = std::get<0>(bop);
                     ystar_u = std::get<1>(bop);
                 } else {
@@ -265,9 +270,9 @@ std::tuple<std::vector<int64_t>, double> SVP::_predict_set(torch::Tensor input, 
                 }
             }
         } else if (p.constr == ConstraintType::ERROR) {
-            if (yhat_p < p.error) {
+            if (ycur_p < p.error) {
                 if (c > 1) {
-                    std::tuple<std::vector<int64_t>, double> bop {this->_predict_set(input, p, c-1, ystar, ystar_u, yhat, yhat_p, q)};
+                    std::tuple<std::vector<int64_t>, double> bop {this->_predict_set(input, p, c-1, ystar, ystar_u, ycur, ycur_p, q)};
                     ystar = std::get<0>(bop);
                     ystar_u = std::get<1>(bop);
                 } else {
@@ -278,12 +283,11 @@ std::tuple<std::vector<int64_t>, double> SVP::_predict_set(torch::Tensor input, 
         if (current.node->y.size() > 1) {
             // forward step
             auto o = current.node->estimator->forward(input);
-            o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1));
+            o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1)).to(torch::kCPU);
             for (int64_t i = 0; i<static_cast<int64_t>(current.node->chn.size()); ++i)
             {
                 HNode* c_node {current.node->chn[i]};
-                double c_node_prob {current.prob*o[i].item<double>()};
-                q.push({c_node, c_node_prob});
+                q.push({c_node, current.prob*o[0][i].item<double>()});
             }
         } else {
             break;
@@ -293,7 +297,6 @@ std::tuple<std::vector<int64_t>, double> SVP::_predict_set(torch::Tensor input, 
     std::get<1>(prediction) = ystar_u;
 
     return prediction;
-
 }
     
 /* cpp->py bindings */ 
