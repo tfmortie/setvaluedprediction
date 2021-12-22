@@ -18,7 +18,7 @@ from svp_cpp import SVP
 from main.py.utils import HFLabelTransformer, FHLabelTransformer, SVPTransformer
 from main.py.svp import SVPNet 
 from sklearn import preprocessing
-from torchvision.datasets import INaturalist, MNIST, Caltech101
+from torchvision.datasets import Caltech101
 from torchvision import transforms
 from sklearn.model_selection import train_test_split
 

@@ -70,7 +70,7 @@ class SVPNet(torch.nn.Module):
         ----------
         x : input tensor of size (N, D) 
             Represents a batch.
-        y : target tensor
+        y : target tensor or list
             Represents the target labels.
 
         Returns
@@ -79,11 +79,13 @@ class SVPNet(torch.nn.Module):
         """
         # get embeddings
         x = self.phi(x)
+        if type(y) is torch.Tensor:
+            y = y.tolist()
         # inverse transform labels
         if type(self.hstruct) is list and len(self.hstruct)>0:
-            y = self.transformer.transform(y.tolist(), True)
+            y = self.transformer.transform(y, True)
         else:
-            y = self.transformer.transform(y.tolist(), False)
+            y = self.transformer.transform(y, False)
             y = torch.Tensor(sum(y,[])).long().to(x.device)
 
         o = self.SVP(x, y)

@@ -108,7 +108,7 @@ SVP::SVP(int64_t in_features, int64_t num_classes, std::vector<std::vector<int64
 
 SVP::SVP(int64_t in_features, int64_t num_classes, torch::Tensor hstruct) {
     this->num_classes = num_classes;
-    this->hstruct = hstruct;
+    this->hstruct = hstruct.to(torch::kFloat32);
     // create root node 
     this->root = new HNode();
     this->root->estimator = this->register_module("linear", torch::nn::Linear(in_features,this->num_classes));
@@ -278,7 +278,7 @@ std::vector<std::vector<int64_t>> SVP::gsvbop_r(torch::Tensor input, const param
     std::vector<std::vector<int64_t>> prediction;
     auto o = this->root->estimator->forward(input);
     o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1));
-    o = torch::matmul(o,this->hstruct.t().to(torch::kFloat32));
+    o = torch::matmul(o,this->hstruct.t()).to(torch::kCPU);
     // run over each sample in batch
     for (int64_t bi=0; bi<input.size(0); ++bi)
     {
@@ -287,7 +287,7 @@ std::vector<std::vector<int64_t>> SVP::gsvbop_r(torch::Tensor input, const param
         double si_optimal_u {0.0};
         for (int64_t si=0; si<o.size(1); ++si)
         {
-            double si_curr_p {o[bi][si].to(torch::kCPU).item<double>()};
+            double si_curr_p {o[bi][si].item<double>()};
             if (p.constr == ConstraintType::NONE) {
                 double si_curr_size {this->hstruct.index({si,"..."}).sum().to(torch::kCPU).item<double>()};
                 double si_curr_u {si_curr_p*(1.0+pow(p.beta,2.0))/(si_curr_size+pow(p.beta,2.0))};
