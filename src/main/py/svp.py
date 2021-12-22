@@ -80,11 +80,12 @@ class SVPNet(torch.nn.Module):
         # get embeddings
         x = self.phi(x)
         # inverse transform labels
-        if type(self.hstruct) is torch.Tensor:
+        if type(self.hstruct) is list and len(self.hstruct)>0:
+            y = self.transformer.transform(y.tolist(), True)
+        else:
             y = self.transformer.transform(y.tolist(), False)
             y = torch.Tensor(sum(y,[])).long().to(x.device)
-        else:
-            y = self.transformer.transform(y.tolist(), True)
+
         o = self.SVP(x, y)
 
         return o
