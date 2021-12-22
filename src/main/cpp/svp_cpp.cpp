@@ -1,5 +1,5 @@
 /** 
-* SVP inference C++ core.
+* SVP inference C++ core
 * 
 * Author: Thomas Mortier
 * Date: November 2021
@@ -88,14 +88,22 @@ torch::Tensor HNode::forward(torch::Tensor input, torch::nn::CrossEntropyLoss cr
 }
 
 SVP::SVP(int64_t in_features, int64_t num_classes, std::vector<std::vector<int64_t>> hstruct) {
-    // first create root node 
+    this->num_classes = num_classes;
+    // create root node 
     this->root = new HNode();
-    // construct tree for h-softmax
-    this->root->y = hstruct[0];
-    this->root->chn = {};
-    this->root->par = this;
-    for (int64_t i=1; i<static_cast<int64_t>(hstruct.size()); ++i)
-        this->root->addch(in_features, hstruct[i]);   
+    if (hstruct.size() == 0) {
+        this->root->estimator = this->register_module("linear", torch::nn::Linear(in_features,this->num_classes));
+        this->root->y = {};
+        this->root->chn = {};
+        this->root->par = this;
+    } else {
+        // construct tree for h-softmax
+        this->root->y = hstruct[0];
+        this->root->chn = {};
+        this->root->par = this;
+        for (int64_t i=1; i<static_cast<int64_t>(hstruct.size()); ++i)
+            this->root->addch(in_features, hstruct[i]);   
+    }
 }
 
 SVP::SVP(int64_t in_features, int64_t num_classes, torch::Tensor hstruct) {

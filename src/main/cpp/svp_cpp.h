@@ -1,5 +1,5 @@
 /** 
-* Header SVP
+* Header SVP inference C++ core
 * 
 * Author: Thomas Mortier
 * Date: November 2021

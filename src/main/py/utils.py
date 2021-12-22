@@ -8,8 +8,6 @@ Date: November 2021
 TODO: 
     - argument checks
 """
-import torch
-
 import numpy as np
 
 from sklearn.base import BaseEstimator, TransformerMixin

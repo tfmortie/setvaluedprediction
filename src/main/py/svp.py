@@ -18,14 +18,14 @@ class SVPNet(torch.nn.Module):
     Parameters
     ----------
     phi : torch.nn.Module
-        Represents the neural network architecture which learns the hidden representation
+        Represents the neural network architecture which learns the hidden representations
         for the probabilistic model. Must be of type torch.nn.Module with output 
         (batch_size, hidden_size).
     hidden_size : int
         Size of the hidden representation which is passed to the probabilistic model.
     num_classes : int 
         Number of classes.
-    hstruct : nested list of int, default=None
+    hstruct : nested list of int or tensor, default=None
         Hierarchical structure of the classification problem. If None,
         a flat probabilistic model is going to be considered.
     transformer : SVPTransformer, default=None
@@ -42,7 +42,7 @@ class SVPNet(torch.nn.Module):
         Size of the hidden representation which is passed to the probabilistic model.
     num_classes : int 
         Number of classes.
-    hstruct : nested list of int, default=None
+    hstruct : nested list of int or tensor, default=None
         Hierarchical structure of the classification problem. If None,
         a flat probabilistic model is going to be considered.
     transformer : SVPTransformer, default=None
@@ -58,7 +58,10 @@ class SVPNet(torch.nn.Module):
         self.num_classes = num_classes
         self.hstruct = hstruct
         self.transformer = transformer
-        self.SVP = SVP(self.hidden_size, self.num_classes, self.hstruct)
+        if hstruct is None:
+            self.SVP = SVP(self.hidden_size, self.num_classes, [])
+        else:
+            self.SVP = SVP(self.hidden_size, self.num_classes, self.hstruct)
 
     def forward(self, x, y):
         """ Forward pass for the set-valued predictor.
@@ -67,7 +70,7 @@ class SVPNet(torch.nn.Module):
         ----------
         x : input tensor of size (N, D) 
             Represents a batch.
-        y : Torch tensor
+        y : target tensor
             Represents the target labels.
 
         Returns
