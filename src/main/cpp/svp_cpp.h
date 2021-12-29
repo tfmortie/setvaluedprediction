@@ -35,7 +35,7 @@ struct HNode : torch::nn::Module {
     std::vector<HNode*> chn;
     torch::nn::Module *par;
     // functions
-    void addch(int64_t in_features, std::vector<int64_t> y); 
+    void addch(int64_t in_features, std::vector<int64_t> y, int64_t id); 
     torch::Tensor forward(torch::Tensor input, torch::nn::CrossEntropyLoss criterion, int64_t y_ind={});
 };
 

@@ -87,7 +87,6 @@ class SVPNet(torch.nn.Module):
         else:
             y = self.transformer.transform(y, False)
             y = torch.Tensor(sum(y,[])).long().to(x.device)
-
         o = self.SVP(x, y)
 
         return o

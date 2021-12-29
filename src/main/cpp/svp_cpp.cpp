@@ -26,7 +26,7 @@
 #include <random>
 #include "svp_cpp.h"
 
-void HNode::addch(int64_t in_features, std::vector<int64_t> y) {
+void HNode::addch(int64_t in_features, std::vector<int64_t> y, int64_t id) {
     // check if leaf or internal node 
     if (this->chn.size() > 0)
     {
@@ -42,7 +42,7 @@ void HNode::addch(int64_t in_features, std::vector<int64_t> y) {
         }
         if (ind != -1)
             // subset found, hence, recursively pass to child
-            this->chn[ind]->addch(in_features, y);
+            this->chn[ind]->addch(in_features, y, id);
         else
         {
             // no children for which y is a subset, hence, put in children list
@@ -60,7 +60,8 @@ void HNode::addch(int64_t in_features, std::vector<int64_t> y) {
                 // get string representation of y
                 std::stringstream ystr;
                 std::copy(y.begin(), y.end(), std::ostream_iterator<int>(ystr, " "));
-                this->estimator = this->par->register_module(ystr.str(), torch::nn::Linear(in_features, this->chn.size()));
+                std::string lbl {ystr.str()+std::to_string(id)};
+                this->estimator = this->par->register_module(lbl, torch::nn::Linear(in_features, this->chn.size()));
             }
         }
     }
@@ -72,6 +73,15 @@ void HNode::addch(int64_t in_features, std::vector<int64_t> y) {
         new_node->chn = {};
         new_node->par = this->par;
         this->chn.push_back(new_node);
+        // check if we have a single path
+        if (new_node->y.size() == this->y.size())
+        {
+            std::stringstream ystr;
+            std::copy(y.begin(), y.end(), std::ostream_iterator<int>(ystr, " "));
+            std::string lbl {ystr.str()+std::to_string(id)};
+            // create estimator
+            this->estimator = this->par->register_module(lbl, torch::nn::Linear(in_features, 1));
+        }
     }
 }
 
@@ -92,7 +102,7 @@ SVP::SVP(int64_t in_features, int64_t num_classes, std::vector<std::vector<int64
     // create root node 
     this->root = new HNode();
     if (hstruct.size() == 0) {
-        this->root->estimator = this->register_module("linear", torch::nn::Linear(in_features,this->num_classes));
+        this->root->estimator = this->register_module("root", torch::nn::Linear(in_features,this->num_classes));
         this->root->y = {};
         this->root->chn = {};
         this->root->par = this;
@@ -102,7 +112,7 @@ SVP::SVP(int64_t in_features, int64_t num_classes, std::vector<std::vector<int64
         this->root->chn = {};
         this->root->par = this;
         for (int64_t i=1; i<static_cast<int64_t>(hstruct.size()); ++i)
-            this->root->addch(in_features, hstruct[i]);   
+            this->root->addch(in_features, hstruct[i], i);   
     }
 }
 
@@ -111,7 +121,7 @@ SVP::SVP(int64_t in_features, int64_t num_classes, torch::Tensor hstruct) {
     this->hstruct = hstruct.to(torch::kFloat32);
     // create root node 
     this->root = new HNode();
-    this->root->estimator = this->register_module("linear", torch::nn::Linear(in_features,this->num_classes));
+    this->root->estimator = this->register_module("root", torch::nn::Linear(in_features,this->num_classes));
     this->root->y = {};
     this->root->chn = {};
     this->root->par = this;

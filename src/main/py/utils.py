@@ -386,24 +386,24 @@ class HFLabelTransformer(TransformerMixin, BaseEstimator):
         self.tree_ = {}
         for i,yi in enumerate(self.classes_):
             path_nodes = yi.split(self.sep)
-            for j,nj in enumerate(path_nodes):
-                if nj not in self.tree_:
-                    self.tree_[nj] = {
+            for j in range(1,len(path_nodes)+1):
+                node = self.sep.join(path_nodes[:j])
+                if node not in self.tree_:
+                    self.tree_[node] = {
                         "yhat": [i],
                         "chn": [],
-                        "par": (None if j==0 else path_nodes[j-1]),
-                        "lbl": (nj if j==0 else self.tree_[path_nodes[j-1]]["lbl"]+self.sep+nj)
+                        "par": (None if j==1 else self.sep.join(path_nodes[:j-1]))
                     }
-                    if j!=0:
-                        self.tree_[path_nodes[j-1]]["chn"].append(nj)
+                    if j!=1:
+                        self.tree_[self.sep.join(path_nodes[:j-1])]["chn"].append(node)
                 else:
-                    if i not in self.tree_[nj]["yhat"]:
-                        self.tree_[nj]["yhat"].append(i)
+                    if i not in self.tree_[node]["yhat"]:
+                        self.tree_[node]["yhat"].append(i)
         # create hlbl->hpath dictionary
         self.hlbl_to_hpath_ = {c:[] for c in self.classes_}
         for c in self.classes_:
-            node = c.split(self.sep)[-1]
-            par_node = self.tree_[node]["par"]
+            node = c
+            par_node = self.sep.join(c.split(self.sep)[:-1])
             while par_node is not None:
                 self.hlbl_to_hpath_[c].append(self.tree_[par_node]["chn"].index(node))
                 node = par_node
@@ -412,9 +412,7 @@ class HFLabelTransformer(TransformerMixin, BaseEstimator):
         self.hlbl_to_hpath_ = {k:v[::-1] for k,v in self.hlbl_to_hpath_.items()}
         # also store decoding dict
         self.hpath_to_hlbl_ = {str(v):k for k,v in self.hlbl_to_hpath_.items()}
-        # now obtain hlbl->yhat dictionary
-        self.hlbl_to_yhat_ = {self.tree_[k]["lbl"]:self.tree_[k]["yhat"] for k,v in self.tree_.items()}
-        # also store decoding dict
+        self.hlbl_to_yhat_ = {k:self.tree_[k]["yhat"] for k in self.tree_}
         self.yhat_to_hlbl_ = {str(v):k for k,v in self.hlbl_to_yhat_.items()}
         # and obtain struct (in terms of yhat)
         self.hstruct_ = []
@@ -429,7 +427,7 @@ class HFLabelTransformer(TransformerMixin, BaseEstimator):
         while len(visit_list) != 0:
             node = visit_list.pop(0)
             self.hstruct_.append(self.hlbl_to_yhat_[node])
-            visit_list.extend([node+self.sep+nch for nch in self.tree_[node.split(self.sep)[-1]]["chn"]])
+            visit_list.extend([nch for nch in self.tree_[node]["chn"]])
 
         return self
 
