@@ -5,6 +5,7 @@
 * Date: November 2021
 *
 * TODO: 
+*   - !!! delete counter_hf_r
 *   - check if we can add svp params as argument to init (avoids a couple of potential issues)
 *   - clean code
 *   - documentation
@@ -25,6 +26,8 @@
 #include <algorithm>
 #include <random>
 #include "svp_cpp.h"
+
+int counter_hf_r;
 
 void HNode::addch(int64_t in_features, std::vector<int64_t> y, int64_t id) {
     // check if leaf or internal node 
@@ -154,6 +157,13 @@ torch::Tensor SVP::forward(torch::Tensor input, torch::Tensor target) {
     loss = criterion(o, target);
 
     return loss;
+}
+    
+torch::Tensor SVP::forward(torch::Tensor input) {
+    auto o = this->root->estimator->forward(input);
+    o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1));
+
+    return o;
 }
 
 std::vector<int64_t> SVP::predict(torch::Tensor input) {
@@ -402,8 +412,10 @@ std::vector<std::vector<int64_t>> SVP::gsvbop_hf_r(torch::Tensor input, const pa
         double yhat_p {0.0};
         std::priority_queue<QNode> q;
         q.push({this->root, 1.0});
+        counter_hf_r = 0;
         std::tuple<std::vector<int64_t>, double> bop {this->_gsvbop_hf_r(input[bi].view({1,-1}), p, p.c, ystar, ystar_u, yhat, yhat_p, q)};
         prediction.push_back(std::get<0>(bop));
+        std::cout << "[info] " << counter_hf_r << " function calls" << std::endl;
     }
 
     return prediction;
@@ -412,6 +424,7 @@ std::vector<std::vector<int64_t>> SVP::gsvbop_hf_r(torch::Tensor input, const pa
 std::tuple<std::vector<int64_t>, double> SVP::_gsvbop_hf_r(torch::Tensor input, const param& p, int64_t c, std::vector<int64_t> ystar, double ystar_u, std::vector<int64_t> yhat, double yhat_p, std::priority_queue<QNode> q) {
     std::tuple<std::vector<int64_t>, double> prediction;
     while (!q.empty()) {
+        counter_hf_r += 1;
         std::vector<int64_t> ycur {yhat};
         double ycur_p {yhat_p};
         QNode current {q.top()};
@@ -489,6 +502,10 @@ std::tuple<std::vector<int64_t>, double> SVP::_gsvbop_hf_r(torch::Tensor input, 
     return prediction;
 }
     
+void SVP::set_hstruct(torch::Tensor hstruct) {
+    this->hstruct = hstruct.to(torch::kFloat32);
+}
+    
 /* cpp->py bindings */ 
 PYBIND11_MODULE(svp_cpp, m) {
     using namespace pybind11::literals;
@@ -496,9 +513,11 @@ PYBIND11_MODULE(svp_cpp, m) {
         .def(py::init<int64_t, int64_t, std::vector<std::vector<int64_t>>>(), "in_features"_a, "num_classes"_a, "hstruct"_a=py::list())
         .def(py::init<int64_t, int64_t, torch::Tensor>(), "in_features"_a, "num_classes"_a, "hstruct"_a)
         .def("forward", py::overload_cast<torch::Tensor, torch::Tensor>(&SVP::forward))
+        .def("forward", py::overload_cast<torch::Tensor>(&SVP::forward))
         .def("forward", py::overload_cast<torch::Tensor, std::vector<std::vector<int64_t>>>(&SVP::forward))
         .def("predict", &SVP::predict, "input"_a)
         .def("predict_set_fb", &SVP::predict_set_fb, "input"_a, "beta"_a, "c"_a)
         .def("predict_set_size", &SVP::predict_set_size, "input"_a, "size"_a, "c"_a)
-        .def("predict_set_error", &SVP::predict_set_error, "input"_a, "error"_a, "c"_a);
+        .def("predict_set_error", &SVP::predict_set_error, "input"_a, "error"_a, "c"_a)
+        .def("set_hstruct", &SVP::set_hstruct, "hstruct"_a);
 }

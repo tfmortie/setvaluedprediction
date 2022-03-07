@@ -59,6 +59,7 @@ struct SVP : torch::nn::Module {
     SVP(int64_t in_features, int64_t num_classes, torch::Tensor hstruct);
     torch::Tensor forward(torch::Tensor input, std::vector<std::vector<int64_t>> target={}); /* forward pass for hierarchical model */
     torch::Tensor forward(torch::Tensor input, torch::Tensor target={}); /* forward pass for flat model */
+    torch::Tensor forward(torch::Tensor input); /* forward pass for flat model */
     std::vector<int64_t> predict(torch::Tensor input); /* top-1 prediction */
     // set-valued prediction functions
     std::vector<std::vector<int64_t>> predict_set_fb(torch::Tensor input, int64_t beta, int64_t c);
@@ -70,6 +71,8 @@ struct SVP : torch::nn::Module {
     std::vector<std::vector<int64_t>> gsvbop_hf(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> gsvbop_hf_r(torch::Tensor input, const param& params);
     std::tuple<std::vector<int64_t>, double> _gsvbop_hf_r(torch::Tensor input, const param& params, int64_t c, std::vector<int64_t> ystar, double ystar_u, std::vector<int64_t> yhat, double yhat_p, std::priority_queue<QNode> q);
+    // other functions
+    void set_hstruct(torch::Tensor hstruct);
 };
 
 #endif

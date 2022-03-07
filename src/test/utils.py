@@ -31,7 +31,7 @@ def test_hflabeltransformer1():
     "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],4)
     print(f'{y=}')
     # transform labels to hierarchical labels (for some random hierarchy)
-    hlt = utils.FHLabelTransformer(None,(2,2),sep=";",random_state=2021)
+    hlt = utils.FHLabelTransformer(k=(2,2),sep=";",random_state=2021)
     y_h = hlt.fit_transform(y)
     print(f'{y_h=}')
     # now convert to numbers in [0,K-1]
@@ -76,7 +76,7 @@ def test_hflabeltransformer3():
     np.random.shuffle(y)
     print(f'{y=}')
     # transform labels to hierarchical labels (for some random hierarchy)
-    hlt = utils.FHLabelTransformer(None,(2,2),sep=";",random_state=2021)
+    hlt = utils.FHLabelTransformer(k=(2,2),sep=";",random_state=2021)
     y_h = hlt.fit_transform(y)
     print(f'{y_h=}')
     # now convert to numbers in [0,K-1]
@@ -94,6 +94,41 @@ def test_hflabeltransformer3():
     print(f'{y_h_p_backtransform=}')
     print(f'{hle.hstruct_=}')
 
+def test_issue_hierarchy():
+    y_h = np.array(["R;F1;G1;S1",
+        "R;F1;G1;S2",
+        "R;F1;G2;S1",
+        "R;F1;G2;S2",
+        "R;F2;G3;S1",
+        "R;F2;G3;S2",
+        "R;F2;G4;S1",
+        "R;F2;G4;S2"])
+    print(f'{y_h=}')
+    # now convert to numbers in [0,K-1]
+    hle = utils.HFLabelTransformer(sep=";")
+    y_h_e = hle.fit(y_h)
+    print(f'{hle.hstruct_=}')
+    print(f'{hle.hlbl_to_yhat_=}')
+    print(f'{hle.hlbl_to_hpath_=}')
+    print(f'{hle.yhat_to_hlbl_=}')
+    print(f'{hle.hpath_to_hlbl_=}')
+
+def test_issue_hierarchy2():
+    y_h = np.array(["R;F1;G1;S1",
+        "R;F2;G2;S2",
+        "R;F2;G2;S3",
+        "R;F2;G3;S4",
+        "R;F2;G3;S5"])
+    print(f'{y_h=}')
+    # now convert to numbers in [0,K-1]
+    hle = utils.HFLabelTransformer(sep=";")
+    y_h_e = hle.fit(y_h)
+    print(f'{hle.hstruct_=}')
+    print(f'{hle.hlbl_to_yhat_=}')
+    print(f'{hle.hlbl_to_hpath_=}')
+    print(f'{hle.yhat_to_hlbl_=}')
+    print(f'{hle.hpath_to_hlbl_=}')
+
 if __name__=="__main__":
     #print("TEST FLAT->HIERARCHICAL LABEL TRANSFORMER WITH NO STRUCT")
     #test_fhlabeltransformer()
@@ -110,6 +145,16 @@ if __name__=="__main__":
     print("")
     print("TEST HIERARCHICAL->FLAT LABEL TRANSFORMER 3")
     test_hflabeltransformer3()
+    print("DONE!")
+    print("")
+    print("")
+    print("TEST ISSUE")
+    test_issue_hierarchy()
+    print("DONE!")
+    print("")
+    print("")
+    print("TEST ISSUE 2")
+    test_issue_hierarchy2()
     print("DONE!")
     print("")
     print("")
