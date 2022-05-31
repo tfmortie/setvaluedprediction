@@ -4,6 +4,8 @@ Module for utility-based set-valued prediction in (hierarchical) multi-class cla
 
 ## Description
 
+Package with implementation of utility-based set-valued prediction for flat and hierarchical multi-class classification. We provide predictors that supports both scikit-learn and PyTorch.
+
 ## Installation
 
 ## Experiments paper(s)

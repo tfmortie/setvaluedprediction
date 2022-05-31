@@ -1,5 +1,5 @@
 """
-Implementation for PyTorch set-valued predictor.
+Implementation for PyTorch and scikit-learn set-valued predictors.
 
 Author: Thomas Mortier
 Date: November 2021
@@ -8,12 +8,8 @@ TODO:
     - improve checks for param in predict_set
 """
 import torch
-import cvxpy
-import time
-import torch.nn as nn
-import numpy as np
-
 from svp_cpp import SVP
+from .utils import LabelTransformer
 
 class SVPNet(torch.nn.Module):
     """ Pytorch module which represents a set-valued predictor.
@@ -26,45 +22,60 @@ class SVPNet(torch.nn.Module):
         (batch_size, hidden_size).
     hidden_size : int
         Size of the hidden representation which is passed to the probabilistic model.
-    num_classes : int 
-        Number of classes.
-    hstruct : nested list of int or tensor, default=None
-        Hierarchical structure of the classification problem. If None,
-        a flat probabilistic model is going to be considered.
-    transformer : SVPTransformer, default=None
-        Transformer needed for the SVP module. Is None in case of a flat
-        probabilistic model.
+    classes : list
+        List containing classes seen during training time. 
+    sep : str, default=None
+        Path separator used for processing the hierarchical labels. If set to None,
+        a random hierarchy is created and provided flat labels are converted,
+        accordingly.
+    k : tuple of int, default=None
+        Min and max number of children a node can have in the random generated tree. Is ignored when
+        sep is not set to None.
+    random_state : RandomState or an int seed, default=None
+        A random number generator instance to define the state of the
+        random generator.
 
     Attributes
     ----------
     phi : torch.nn.Module
-        Represents the neural network architecture which learns the hidden representation
+        Represents the neural network architecture which learns the hidden representations
         for the probabilistic model. Must be of type torch.nn.Module with output 
         (batch_size, hidden_size).
     hidden_size : int
         Size of the hidden representation which is passed to the probabilistic model.
-    num_classes : int 
-        Number of classes.
-    hstruct : nested list of int or tensor, default=None
-        Hierarchical structure of the classification problem. If None,
-        a flat probabilistic model is going to be considered.
-    transformer : SVPTransformer, default=None
-        Transformer needed for the SVP module. Is None in case of a flat
-        probabilistic model.
+    classes : list
+        List containing classes seen during training time. 
+    sep : str, default=None
+        Path separator used for processing the hierarchical labels. If set to None,
+        a random hierarchy is created and provided flat labels are converted,
+        accordingly.
+    k : tuple of int, default=None
+        Min and max number of children a node can have in the random generated tree. Is ignored when
+        sep is not set to None.
+    random_state : RandomState or an int seed, default=None
+        A random number generator instance to define the state of the
+        random generator.
+    transformer : LabelTransformer
+        Label transformer needed for the SVP module. 
     SVP : SVP module
         SVP module.
     """
-    def __init__(self, phi, hidden_size, num_classes, hstruct=None, transformer=None):
+    def __init__(self, phi, hidden_size, classes, sep=None, k=None, random_state=None):
         super(SVPNet, self).__init__()
         self.phi = phi
         self.hidden_size = hidden_size
-        self.num_classes = num_classes
-        self.hstruct = hstruct
-        if self.hstruct is None:
-            self.SVP = SVP(self.hidden_size, self.num_classes, [])
+        self.classes = classes
+        self.sep = sep
+        self.k = k
+        self.random_state = random_state
+        # create label transfomer
+        self.transformer = LabelTransformer(self.k, self.sep, random_state)
+        # fit transformer
+        self.transformer.fit(self.classes)
+        if self.sep is None:
+            self.SVP = SVP(self.hidden_size, len(self.transformer.classes_), [])
         else:
-            self.SVP = SVP(self.hidden_size, self.num_classes, self.hstruct)
-        self.transformer = transformer
+            self.SVP = SVP(self.hidden_size, len(self.transformer.classes_), self.transformer.hstruct_)
 
     def forward(self, x, y=None):
         """ Forward pass for the set-valued predictor.
@@ -86,7 +97,7 @@ class SVPNet(torch.nn.Module):
             if type(y) is torch.Tensor:
                 y = y.tolist()
             # inverse transform labels
-            if type(self.hstruct) is list and len(self.hstruct)>0:
+            if type(self.transformer.hstruct_) is list and len(self.transformer.hstruct_)>0:
                 y = self.transformer.transform(y, True)
             else:
                 y = self.transformer.transform(y, False)
@@ -116,6 +127,9 @@ class SVPNet(torch.nn.Module):
         o = self.transformer.inverse_transform(o)
 
         return o
+
+    def predict_proba(self, x):
+        return "Not implemented yet!"
     
     def predict_set(self, x, params):
         """ Predict set function for the set-valued predictor 
@@ -166,73 +180,11 @@ class SVPNet(torch.nn.Module):
 
         return o
 
-    def pwk_ilp_get_ab(self, hstruct, params):
-        A = []
-        A.append(np.array([len(s) for s in hstruct]))
-        # add 1
-        A.append(np.ones(len(hstruct)))
-        # add E
-        # run over adjecency matric
-        for i in range(len(hstruct)):
-            for j in range(i+1,len(hstruct)):
-                if len(set(hstruct[i])&set(hstruct[j]))>0:
-                    # we have found an edge
-                    e = np.zeros(len(hstruct))
-                    e[i] = 1
-                    e[j] = 1
-                    A.append(e)
-        A = np.vstack(A)
-        # construct b
-        b = np.ones(A.shape[0])
-        b[0] = params["size"]
-        b[1] = params["c"]
-
-        return A, b
-    
-    def pwk_ilp(self, P, A, b, hstruct, solver):
-        o_t = [] 
-        t = 0.0
-        for pi in P:
-            # get p
-            p = []
-            for s in hstruct:
-                p_s = 0
-                for si in s:
-                    p_s += pi[si]
-                p.append(p_s)
-            p = np.array(p)
-            # solve our ILP
-            start_time = time.time()
-            selection = cvxpy.Variable(len(hstruct), boolean=True)
-            constraint = A @ selection <= b
-            utility = p @ selection
-            knapsack_problem = cvxpy.Problem(cvxpy.Maximize(utility), [constraint])
-            if solver=="GLPK_MI":
-                knapsack_problem.solve(solver=cvxpy.GLPK_MI)
-            elif solver=="CBC":
-                knapsack_problem.solve(solver=cvxpy.CBC)
-            else:
-                knapsack_problem.solve(solver=cvxpy.SCIP)
-            stop_time = time.time()
-            t += stop_time-start_time
-            sel_ind = list(np.where(selection.value)[0])
-            pred = []
-            for i in sel_ind:
-                pred.extend(hstruct[i])
-            o_t.append(pred)
-        t /= P.shape[0]
-        
-        # inverse transform sets
-        o = [] 
-        for o_t_i in o_t:
-            o_t_i = self.transformer.inverse_transform(o_t_i)
-            o.append(o_t_i)
- 
-        return o, t
-    
     def set_hstruct(self, hstruct):
-        self.hstruct = hstruct
-        if self.hstruct is None:
+        self.transformer.hstruct_ = hstruct
+        if self.transformer.hstruct_ is None:
             self.SVP.set_hstruct([])
         else:
             self.SVP.set_hstruct(hstruct)
+
+

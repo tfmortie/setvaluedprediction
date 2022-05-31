@@ -1,5 +1,4 @@
 #!/bin/bash
-
 #
 # Experiments for paper "Set-valued prediction in hierarchical classification with constrained representation complexity"
 #

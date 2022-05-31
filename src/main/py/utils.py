@@ -1,9 +1,8 @@
 """ 
-Some important transformers and other help functions for working with the SVP module.
+Some important transformers and functions for working with hierarchical classifiers.
 
 Author: Thomas Mortier
 Date: November 2021
-
 
 TODO: 
     - argument checks
@@ -15,9 +14,9 @@ from sklearn.utils import column_or_1d
 from sklearn.utils.validation import check_is_fitted, check_random_state
 from itertools import combinations
 
-class SVPTransformer(TransformerMixin, BaseEstimator):
-    """ SVP transformer which represents a convenience wrapper for all transformers 
-    needed to work with the SVP module.
+class LabelTransformer(TransformerMixin, BaseEstimator):
+    """ Label transformer which represents a convenience wrapper for all transformers 
+    needed to work with hierarchical classifiers.
     
     Parameters
     ----------
@@ -59,7 +58,7 @@ class SVPTransformer(TransformerMixin, BaseEstimator):
         self.hle = HFLabelTransformer(sep=";")
 
     def fit(self, y):
-        """ Fit SVP transformer.
+        """ Fit label transformer.
         
         Parameters
         ----------
@@ -77,13 +76,16 @@ class SVPTransformer(TransformerMixin, BaseEstimator):
             self.hle = self.hle.fit(self.hlt.transform(y))
         else:
             self.hle = self.hle.fit(y)
-        # store the hierarchy
-        self.hstruct_ = self.hle.hstruct_
+        # store the hierarchy (in case of hierarchical model)
+        if self.sep is not None:
+            self.hstruct_ = self.hle.hstruct_
+        else:
+            self.hstruct_ = None
 
         return self
 
     def fit_transform(self, y, path=False):
-        """ Fit SVP transformer return encoded labels.
+        """ Fit label transformer return encoded labels.
 
         Parameters
         ----------
@@ -143,6 +145,8 @@ class SVPTransformer(TransformerMixin, BaseEstimator):
     def get_hstruct_tensor(self, params):
         """ Get Torch tensor which represents the hierarchy.
 
+        TODO: move to experiments folder
+
         Parameters
         ----------
         params : dict
@@ -157,28 +161,28 @@ class SVPTransformer(TransformerMixin, BaseEstimator):
         if params["constraint"] == "size":
             rc = min(params["size"],rc)
         for ci in range(1,rc+1):
-            combs = list(combinations(self.hstruct_, ci))
+            combs = list(combinations(self.hle.hstruct_, ci))
             for c in combs:
                 if ci==1:
                     c=c[0]
                     if params["constraint"] == "size":
                         if params["size"] >= len(c):
-                            crow = np.zeros((1,len(self.hstruct_[0])),dtype=np.uint8)
+                            crow = np.zeros((1,len(self.hle.hstruct_[0])),dtype=np.uint8)
                             crow[0,c] = 1
                             hstruct_t.append(crow)
                     else:
-                        crow = np.zeros((1,len(self.hstruct_[0])),dtype=np.uint8)
+                        crow = np.zeros((1,len(self.hle.hstruct_[0])),dtype=np.uint8)
                         crow[0,c] = 1
                         hstruct_t.append(crow)
                 else:
-                    if len(set(sum(list(c),[])))==len(sum(list(c),[])) and (set(sum(list(c),[])) not in [set(n) for n in self.hstruct_]):
+                    if len(set(sum(list(c),[])))==len(sum(list(c),[])) and (set(sum(list(c),[])) not in [set(n) for n in self.hle.hstruct_]):
                         if params["constraint"] == "size":
                             if params["size"] >= len(sum(c,[])):
-                                crow = np.zeros((1,len(self.hstruct_[0])),dtype=np.uint8)
+                                crow = np.zeros((1,len(self.hle.hstruct_[0])),dtype=np.uint8)
                                 crow[0,sum(c,[])] = 1
                                 hstruct_t.append(crow)
                         else:
-                            crow = np.zeros((1,len(self.hstruct_[0])),dtype=np.uint8)
+                            crow = np.zeros((1,len(self.hle.hstruct_[0])),dtype=np.uint8)
                             crow[0,sum(c,[])] = 1
                             hstruct_t.append(crow)
                             

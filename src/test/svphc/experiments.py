@@ -1,5 +1,5 @@
 """
-Main module for paper "Set-valued prediction in hierarchical classification with constrained representation complexity"
+Main module for experiments paper "Set-valued prediction in hierarchical classification with constrained representation complexity"
 
 Author: Thomas Mortier
 Date: January 2022
@@ -13,10 +13,10 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-from main.py.utils import SVPTransformer
 from main.py.svp import SVPNet 
 from data import GET_DATASETLOADER
 from models import GET_PHI, accuracy, recall, setsize, paramparser
+from utils import pwk_ilp_get_ab, pwk_ilp
 
 """ main function which trains and tests the SVP module """
 def traintestsvp(args):
@@ -24,22 +24,17 @@ def traintestsvp(args):
     dataset = args.datapath.split("/")[-1]
     print("Start reading in data for {0}...".format(dataset))
     train_data_loader, val_data_loader, classes = GET_DATASETLOADER[dataset](args)
-    # label transformer
-    if args.randomh:
-        transformer = SVPTransformer(k=(2,2), sep=";", random_state=args.randomseed)
-    else:
-        transformer = SVPTransformer(k=None, sep=";", random_state=args.randomseed)
-    transformer.fit(classes)
     print("Done!")
     print("Start training and testing model...")
     # model which obtains hidden representations
     phi = GET_PHI[dataset](args)
-    # the structure representing the (random) hierarchy
-    hstruct = transformer.hstruct_
-    if not args.hmodel: 
-        hstruct = None
-    # create our SVPNet model
-    model = SVPNet(phi, args.hidden, args.nclasses, hstruct, transformer)
+    if args.hmodel:
+        if args.randomh:
+            model = SVPNet(phi, args.hidden, classes, sep=";", k=(2,2), random_state=args.randomseed)
+        else:
+            model = SVPNet(phi, args.hidden, classes, sep=";", k=None, random_state=args.randomseed)
+    else:
+        model = SVPNet(phi, args.hidden, classes, sep=None, k=None, random_state=args.randomseed)
     if args.gpu:
         model = model.cuda()
     # optimizer
@@ -57,6 +52,7 @@ def traintestsvp(args):
             loss = model(inputs, labels)
             loss.backward()
             optimizer.step()
+            loss = model(inputs, labels)
             stop_time = time.time()
             train_time += (stop_time-start_time)/args.batchsize
             train_loss += loss.item()
@@ -89,7 +85,7 @@ def traintestsvp(args):
         preds_out, labels_out = [], []
         if not args.ilp:
             if not args.hmodel and param["c"]!=len(np.unique(classes)):
-                hstruct = transformer.get_hstruct_tensor(param)
+                hstruct = model.transformer.get_hstruct_tensor(param)
                 print(f'{hstruct.shape=}')
                 if args.gpu:
                     hstruct = hstruct.cuda()
@@ -118,8 +114,8 @@ def traintestsvp(args):
             print("Test SVP for setting {0}: recall={1}, |Ÿ|={2}, time={3}s".format(param,val_recall/i,val_setsize/i,val_time/i))
             print("Done!")
         else:
-            hstruct = transformer.hstruct_
-            A, b = model.pwk_ilp_get_ab(hstruct, param)
+            hstruct = model.transformer.hstruct_
+            A, b = pwk_ilp_get_ab(hstruct, param)
             print(f'{A.shape=}')
             val_recall, val_setsize, val_time = 0.0, 0.0, 0.0
             for i, data in enumerate(val_data_loader,1):
@@ -129,7 +125,7 @@ def traintestsvp(args):
                     inputs = inputs.cuda()
                 with torch.no_grad():
                     P = model.forward(inputs).cpu().detach().numpy()
-                    preds, t = model.pwk_ilp(P, A, b, hstruct, args.solver)
+                    preds, t = pwk_ilp(P, A, b, hstruct, args.solver)
                     val_time += t
                     val_recall += recall(preds, labels)
                     val_setsize += setsize(preds)
@@ -137,7 +133,7 @@ def traintestsvp(args):
             print("Test SVP for setting {0}: recall={1}, |Ÿ|={2}, time={3}s".format(param,val_recall/i,val_setsize/i,val_time/i))
 
 if __name__=="__main__":
-    parser = argparse.ArgumentParser(description="SVP module main code")
+    parser = argparse.ArgumentParser(description="Code for experiments of UAI paper")
     # data args
     parser.add_argument("-p", dest="datapath", type=str, required=True)
     parser.add_argument("-k", dest="nclasses", type=int, required=True)

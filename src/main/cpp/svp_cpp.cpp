@@ -5,7 +5,6 @@
 * Date: November 2021
 *
 * TODO: 
-*   - !!! delete counter_hf_r
 *   - check if we can add svp params as argument to init (avoids a couple of potential issues)
 *   - clean code
 *   - documentation
@@ -26,8 +25,6 @@
 #include <algorithm>
 #include <random>
 #include "svp_cpp.h"
-
-int counter_hf_r;
 
 void HNode::addch(int64_t in_features, std::vector<int64_t> y, int64_t id) {
     // check if leaf or internal node 
@@ -412,10 +409,8 @@ std::vector<std::vector<int64_t>> SVP::gsvbop_hf_r(torch::Tensor input, const pa
         double yhat_p {0.0};
         std::priority_queue<QNode> q;
         q.push({this->root, 1.0});
-        counter_hf_r = 0;
         std::tuple<std::vector<int64_t>, double> bop {this->_gsvbop_hf_r(input[bi].view({1,-1}), p, p.c, ystar, ystar_u, yhat, yhat_p, q)};
         prediction.push_back(std::get<0>(bop));
-        std::cout << "[info] " << counter_hf_r << " function calls" << std::endl;
     }
 
     return prediction;
@@ -424,7 +419,6 @@ std::vector<std::vector<int64_t>> SVP::gsvbop_hf_r(torch::Tensor input, const pa
 std::tuple<std::vector<int64_t>, double> SVP::_gsvbop_hf_r(torch::Tensor input, const param& p, int64_t c, std::vector<int64_t> ystar, double ystar_u, std::vector<int64_t> yhat, double yhat_p, std::priority_queue<QNode> q) {
     std::tuple<std::vector<int64_t>, double> prediction;
     while (!q.empty()) {
-        counter_hf_r += 1;
         std::vector<int64_t> ycur {yhat};
         double ycur_p {yhat_p};
         QNode current {q.top()};
