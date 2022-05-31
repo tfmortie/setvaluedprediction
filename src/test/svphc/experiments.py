@@ -1,21 +1,19 @@
 """
-SVP module for testing on different datasets
+Main module for paper "Set-valued prediction in hierarchical classification with constrained representation complexity"
 
 Author: Thomas Mortier
 Date: January 2022
 """
 import sys
-import ast
 import time
 import argparse
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import torch
 import torch.nn as nn
 import numpy as np
 
-from svp_cpp import SVP
-from main.py.utils import HFLabelTransformer, FHLabelTransformer, SVPTransformer
+from main.py.utils import SVPTransformer
 from main.py.svp import SVPNet 
 from data import GET_DATASETLOADER
 from models import GET_PHI, accuracy, recall, setsize, paramparser

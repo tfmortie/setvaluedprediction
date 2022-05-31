@@ -135,3 +135,19 @@ dmypy.json
 
 # Local History for Visual Studio Code
 .history/
+
+# Log files and output data
+*.txt
+*.csv
+*.npy
+
+# Notebooks
+*.ipynb
+
+# Documents
+*.pdf
+*.aux
+*.tex
+
+# Files related to experiments 
+files/
