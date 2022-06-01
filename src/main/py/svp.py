@@ -8,6 +8,7 @@ TODO:
     - improve checks for param in predict_set
 """
 import torch
+
 from svp_cpp import SVP
 from .utils import LabelTransformer
 
@@ -97,7 +98,7 @@ class SVPNet(torch.nn.Module):
             if type(y) is torch.Tensor:
                 y = y.tolist()
             # inverse transform labels
-            if type(self.transformer.hstruct_) is list and len(self.transformer.hstruct_)>0:
+            if self.sep is not None:
                 y = self.transformer.transform(y, True)
             else:
                 y = self.transformer.transform(y, False)
@@ -179,12 +180,3 @@ class SVPNet(torch.nn.Module):
             o.append(o_t_i)
 
         return o
-
-    def set_hstruct(self, hstruct):
-        self.transformer.hstruct_ = hstruct
-        if self.transformer.hstruct_ is None:
-            self.SVP.set_hstruct([])
-        else:
-            self.SVP.set_hstruct(hstruct)
-
-

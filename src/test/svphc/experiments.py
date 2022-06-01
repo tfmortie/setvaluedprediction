@@ -16,7 +16,7 @@ import numpy as np
 from main.py.svp import SVPNet 
 from data import GET_DATASETLOADER
 from models import GET_PHI, accuracy, recall, setsize, paramparser
-from utils import pwk_ilp_get_ab, pwk_ilp
+from utils import get_hstruct_tensor, pwk_ilp_get_ab, pwk_ilp
 
 """ main function which trains and tests the SVP module """
 def traintestsvp(args):
@@ -85,11 +85,11 @@ def traintestsvp(args):
         preds_out, labels_out = [], []
         if not args.ilp:
             if not args.hmodel and param["c"]!=len(np.unique(classes)):
-                hstruct = model.transformer.get_hstruct_tensor(param)
+                hstruct = get_hstruct_tensor(model.transformer, param)
                 print(f'{hstruct.shape=}')
                 if args.gpu:
                     hstruct = hstruct.cuda()
-                model.set_hstruct(hstruct)
+                model.SVP.set_hstruct(hstruct)
             val_recall, val_setsize, val_time = 0.0, 0.0, 0.0
             for i, data in enumerate(val_data_loader,1):
                 inputs, labels = data 
@@ -116,7 +116,6 @@ def traintestsvp(args):
         else:
             hstruct = model.transformer.hstruct_
             A, b = pwk_ilp_get_ab(hstruct, param)
-            print(f'{A.shape=}')
             val_recall, val_setsize, val_time = 0.0, 0.0, 0.0
             for i, data in enumerate(val_data_loader,1):
                 inputs, labels = data 
@@ -125,7 +124,7 @@ def traintestsvp(args):
                     inputs = inputs.cuda()
                 with torch.no_grad():
                     P = model.forward(inputs).cpu().detach().numpy()
-                    preds, t = pwk_ilp(P, A, b, hstruct, args.solver)
+                    preds, t = pwk_ilp(P, A, b, hstruct, args.solver, model.transformer)
                     val_time += t
                     val_recall += recall(preds, labels)
                     val_setsize += setsize(preds)

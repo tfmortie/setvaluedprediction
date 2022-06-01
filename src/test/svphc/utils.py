@@ -6,7 +6,44 @@ Date: January 2022
 """
 import cvxpy
 import time
+import torch
 import numpy as np
+
+from itertools import combinations
+
+""" Get Torch tensor (S x K, with S the search space and K the number of classes) which represents the hierarchy """
+def get_hstruct_tensor(transformer, params):
+    hstruct_t = []
+    rc = params["c"]
+    if params["constraint"] == "size":
+        rc = min(params["size"],rc)
+    for ci in range(1,rc+1):
+        combs = list(combinations(transformer.hle.hstruct_, ci))
+        for c in combs:
+            if ci==1:
+                c=c[0]
+                if params["constraint"] == "size":
+                    if params["size"] >= len(c):
+                        crow = np.zeros((1,len(transformer.hle.hstruct_[0])),dtype=np.uint8)
+                        crow[0,c] = 1
+                        hstruct_t.append(crow)
+                else:
+                    crow = np.zeros((1,len(transformer.hle.hstruct_[0])),dtype=np.uint8)
+                    crow[0,c] = 1
+                    hstruct_t.append(crow)
+            else:
+                if len(set(sum(list(c),[])))==len(sum(list(c),[])) and (set(sum(list(c),[])) not in [set(n) for n in transformer.hle.hstruct_]):
+                    if params["constraint"] == "size":
+                        if params["size"] >= len(sum(c,[])):
+                            crow = np.zeros((1,len(transformer.hle.hstruct_[0])),dtype=np.uint8)
+                            crow[0,sum(c,[])] = 1
+                            hstruct_t.append(crow)
+                    else:
+                        crow = np.zeros((1,len(transformer.hle.hstruct_[0])),dtype=np.uint8)
+                        crow[0,sum(c,[])] = 1
+                        hstruct_t.append(crow)
+                        
+    return torch.tensor(np.concatenate(hstruct_t,axis=0))
 
 """ Function which returns A and b matrix for the KCG problem """
 def pwk_ilp_get_ab(hstruct, params):

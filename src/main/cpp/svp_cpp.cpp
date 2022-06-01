@@ -1,5 +1,5 @@
 /** 
-* SVP inference C++ core
+* SVPNet inference C++ core
 * 
 * Author: Thomas Mortier
 * Date: November 2021
