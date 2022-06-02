@@ -1,5 +1,5 @@
 """
-Implementation for PyTorch and scikit-learn set-valued predictors.
+Implementation for PyTorch and Scikit-learn set-valued predictors.
 
 Author: Thomas Mortier
 Date: November 2021
@@ -18,20 +18,17 @@ class SVPNet(torch.nn.Module):
     Parameters
     ----------
     phi : torch.nn.Module
-        Represents the neural network architecture which learns the hidden representations
+        Represents the neural network architecture which returns the hidden representations
         for the probabilistic model. Must be of type torch.nn.Module with output 
         (batch_size, hidden_size).
     hidden_size : int
         Size of the hidden representation which is passed to the probabilistic model.
     classes : list
         List containing classes seen during training time. 
-    sep : str, default=None
-        Path separator used for processing the hierarchical labels. If set to None,
-        a random hierarchy is created and provided flat labels are converted,
-        accordingly.
+    hierarchy : {'predefined', 'random', 'none'}, default='none'
+        Type of probabilistic model to consider in the set-valued predictor.
     k : tuple of int, default=None
-        Min and max number of children a node can have in the random generated tree. Is ignored when
-        sep is not set to None.
+        Min and max number of children a node can have in the random generated tree. Is only used when hierarchy='random'. 
     random_state : RandomState or an int seed, default=None
         A random number generator instance to define the state of the
         random generator.
@@ -46,13 +43,10 @@ class SVPNet(torch.nn.Module):
         Size of the hidden representation which is passed to the probabilistic model.
     classes : list
         List containing classes seen during training time. 
-    sep : str, default=None
-        Path separator used for processing the hierarchical labels. If set to None,
-        a random hierarchy is created and provided flat labels are converted,
-        accordingly.
+    hierarchy : {"predefined", "random", "none"}, default="none"
+        Type of probabilistic model to consider in the set-valued predictor.
     k : tuple of int, default=None
-        Min and max number of children a node can have in the random generated tree. Is ignored when
-        sep is not set to None.
+        Min and max number of children a node can have in the random generated tree. Is only used when hierarchy='random'. 
     random_state : RandomState or an int seed, default=None
         A random number generator instance to define the state of the
         random generator.
@@ -61,19 +55,19 @@ class SVPNet(torch.nn.Module):
     SVP : SVP module
         SVP module.
     """
-    def __init__(self, phi, hidden_size, classes, sep=None, k=None, random_state=None):
+    def __init__(self, phi, hidden_size, classes, hierarchy="none", k=None, random_state=None):
         super(SVPNet, self).__init__()
         self.phi = phi
         self.hidden_size = hidden_size
         self.classes = classes
-        self.sep = sep
+        self.hierarchy = hierarchy # todo: argument check hierarchy
         self.k = k
         self.random_state = random_state
         # create label transfomer
-        self.transformer = LabelTransformer(self.k, self.sep, random_state)
+        self.transformer = LabelTransformer(self.hierarchy, self.k, random_state)
         # fit transformer
         self.transformer.fit(self.classes)
-        if self.sep is None:
+        if self.hierarchy == "none":
             self.SVP = SVP(self.hidden_size, len(self.transformer.classes_), [])
         else:
             self.SVP = SVP(self.hidden_size, len(self.transformer.classes_), self.transformer.hstruct_)
@@ -98,11 +92,10 @@ class SVPNet(torch.nn.Module):
             if type(y) is torch.Tensor:
                 y = y.tolist()
             # inverse transform labels
-            if self.sep is not None:
+            if self.hierarchy != "none":
                 y = self.transformer.transform(y, True)
             else:
-                y = self.transformer.transform(y, False)
-                y = torch.Tensor(sum(y,[])).long().to(x.device)
+                y = torch.Tensor(self.transformer.transform(y, False)).long().to(x.device)
             o = self.SVP(x, y)
         else:
             o = self.SVP(x)

@@ -5,41 +5,49 @@ Author: Thomas Mortier
 Date: January 2022
 """
 import cvxpy
+import sys
 import time
 import torch
 import numpy as np
 
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from main.py.utils import HLabelTransformer
 from itertools import combinations
 
 """ Get Torch tensor (S x K, with S the search space and K the number of classes) which represents the hierarchy """
-def get_hstruct_tensor(transformer, params):
+def get_hstruct_tensor(classes, params):
+    # first extract hstruct
+    hlt = HLabelTransformer(sep=";")
+    hlt.fit(classes)
+    hstruct = hlt.hstruct_
     hstruct_t = []
     rc = params["c"]
     if params["constraint"] == "size":
         rc = min(params["size"],rc)
     for ci in range(1,rc+1):
-        combs = list(combinations(transformer.hle.hstruct_, ci))
+        combs = list(combinations(hstruct, ci))
         for c in combs:
             if ci==1:
                 c=c[0]
                 if params["constraint"] == "size":
                     if params["size"] >= len(c):
-                        crow = np.zeros((1,len(transformer.hle.hstruct_[0])),dtype=np.uint8)
+                        crow = np.zeros((1,len(hstruct[0])),dtype=np.uint8)
                         crow[0,c] = 1
                         hstruct_t.append(crow)
                 else:
-                    crow = np.zeros((1,len(transformer.hle.hstruct_[0])),dtype=np.uint8)
+                    crow = np.zeros((1,len(hstruct[0])),dtype=np.uint8)
                     crow[0,c] = 1
                     hstruct_t.append(crow)
             else:
-                if len(set(sum(list(c),[])))==len(sum(list(c),[])) and (set(sum(list(c),[])) not in [set(n) for n in transformer.hle.hstruct_]):
+                if len(set(sum(list(c),[])))==len(sum(list(c),[])) and (set(sum(list(c),[])) not in [set(n) for n in hstruct]):
                     if params["constraint"] == "size":
                         if params["size"] >= len(sum(c,[])):
-                            crow = np.zeros((1,len(transformer.hle.hstruct_[0])),dtype=np.uint8)
+                            crow = np.zeros((1,len(hstruct[0])),dtype=np.uint8)
                             crow[0,sum(c,[])] = 1
                             hstruct_t.append(crow)
                     else:
-                        crow = np.zeros((1,len(transformer.hle.hstruct_[0])),dtype=np.uint8)
+                        crow = np.zeros((1,len(hstruct[0])),dtype=np.uint8)
                         crow[0,sum(c,[])] = 1
                         hstruct_t.append(crow)
                         

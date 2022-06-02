@@ -10,10 +10,10 @@ import argparse
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import torch
-import torch.nn as nn
 import numpy as np
 
 from main.py.svp import SVPNet 
+from main.py.utils import HLabelTransformer
 from data import GET_DATASETLOADER
 from models import GET_PHI, accuracy, recall, setsize, paramparser
 from utils import get_hstruct_tensor, pwk_ilp_get_ab, pwk_ilp
@@ -30,11 +30,11 @@ def traintestsvp(args):
     phi = GET_PHI[dataset](args)
     if args.hmodel:
         if args.randomh:
-            model = SVPNet(phi, args.hidden, classes, sep=";", k=(2,2), random_state=args.randomseed)
+            model = SVPNet(phi, args.hidden, classes, hierarchy="random", random_state=args.randomseed)
         else:
-            model = SVPNet(phi, args.hidden, classes, sep=";", k=None, random_state=args.randomseed)
+            model = SVPNet(phi, args.hidden, classes, hierarchy="predefined", random_state=args.randomseed)
     else:
-        model = SVPNet(phi, args.hidden, classes, sep=None, k=None, random_state=args.randomseed)
+        model = SVPNet(phi, args.hidden, classes, hierarchy="none", random_state=args.randomseed)
     if args.gpu:
         model = model.cuda()
     # optimizer
@@ -85,7 +85,7 @@ def traintestsvp(args):
         preds_out, labels_out = [], []
         if not args.ilp:
             if not args.hmodel and param["c"]!=len(np.unique(classes)):
-                hstruct = get_hstruct_tensor(model.transformer, param)
+                hstruct = get_hstruct_tensor(np.unique(classes), param)
                 print(f'{hstruct.shape=}')
                 if args.gpu:
                     hstruct = hstruct.cuda()
@@ -114,7 +114,11 @@ def traintestsvp(args):
             print("Test SVP for setting {0}: recall={1}, |Ÿ|={2}, time={3}s".format(param,val_recall/i,val_setsize/i,val_time/i))
             print("Done!")
         else:
-            hstruct = model.transformer.hstruct_
+            # first extract hstruct
+            hlt = HLabelTransformer(sep=";")
+            hlt.fit(np.unique(classes))
+            hstruct = hlt.hstruct_
+            # get matrices for KCG problem
             A, b = pwk_ilp_get_ab(hstruct, param)
             val_recall, val_setsize, val_time = 0.0, 0.0, 0.0
             for i, data in enumerate(val_data_loader,1):

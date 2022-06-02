@@ -1,4 +1,4 @@
-# Set-valued classification
+# Set-valued prediction in multi-class classification
 
 Module for utility-based set-valued prediction in (hierarchical) multi-class classification. 
 

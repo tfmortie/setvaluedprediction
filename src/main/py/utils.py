@@ -1,5 +1,5 @@
 """ 
-Some important transformers and functions for working with hierarchical classifiers.
+Some important transformers and functions for working with set-valued predictors.
 
 Author: Thomas Mortier
 Date: November 2021
@@ -7,55 +7,65 @@ Date: November 2021
 TODO: 
     - argument checks
 """
-import torch
 import numpy as np
 
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils import column_or_1d
 from sklearn.utils.validation import check_is_fitted, check_random_state
+from sklearn.exceptions import NotFittedError
+from sklearn import preprocessing
+
 
 class LabelTransformer(TransformerMixin, BaseEstimator):
-    """ Label transformer which represents a convenience wrapper for all transformers 
-    needed to work with hierarchical classifiers.
+    """ Label transformer for set-valued predictors.
     
     Parameters
     ----------
+
+    hierarchy : {"predefined", "random", "none"}, default="none"
+        Type of probabilistic model to consider for the label transformer.
     k : tuple of int, default=None
-        Min and max number of children a node can have in the random generated tree. Hierarchical labels
-        are assumed to be given when set to None.
-    sep : str, default=';'
-        String used for path encodings.
+        Min and max number of children a node can have in the random generated tree. Is only used when hierarchy='random'. 
     random_state : RandomState or an int seed, default=None
-        A random number generator instance to define the state of the
-        random permutations generator.
+        A random number generator instance to define the state of the random permutations generator.
     
     Attributes
     ----------
-    k : tuple of int
-        Represents min and max number of children a node can have in the random generated tree.
-    sep : str
-        String used for path encodings.
+    hierarchy : {"predefined", "random", "none"}, default="none"
+        Type of probabilistic model to consider for the label transformer.
+    k : tuple of int, default=None
+        Min and max number of children a node can have in the random generated tree. Is only used when hierarchy='random'. 
     random_state_ : RandomState or an int seed
         A random number generator instance to define the state of the
         random permutations generator.
-    hlt : FHLabelTransformer
-        Flat to hierarchical label transformer.
-    hle : HFLabelTransformer
-        Hierarchical to flat label transformer.
+    flt : FLabelTransformer
+        Flat label transformer.
+    hlt : HLabelTransformer
+        Hierarchical label transformer.
     hstruct_ : list
         List BFS structure which represents the hierarchy in terms of encoded labels after fit.
     classes_ : list 
         Classes (original) seen during fit.
     """
-    def __init__(self, k=None, sep=';', random_state=None):
+    def __init__(self, hierarchy="none", k=(2,2), random_state=None):
+        self.hierarchy = hierarchy
         self.k = k
-        self.sep = sep
         self.random_state = random_state
-        if k is not None:
-            self.hlt = FHLabelTransformer(self.k, self.sep, random_state=self.random_state)
+        if self.hierarchy == "random":
+            # we need to generate hierarchical labels
+            if self.k is not None:
+                self.flt = FLabelTransformer(";", self.k, random_state=self.random_state)
+            else:
+                self.flt = FLabelTransformer(";", (2,2), random_state=self.random_state)
+            self.hlt = HLabelTransformer(sep=";")
+        elif self.hierarchy == "predefined":
+            # hierarchical labels are provided
+            self.flt = None
+            self.hlt = HLabelTransformer(sep=";")
         else:
-            self.hlt = None
-        self.hle = HFLabelTransformer(sep=";")
+            # flat model
+            self.flt = None
+            self.hlt = preprocessing.LabelEncoder()
 
     def fit(self, y):
         """ Fit label transformer.
@@ -71,13 +81,22 @@ class LabelTransformer(TransformerMixin, BaseEstimator):
         """
         # store classes seen during fit
         self.classes_ = list(np.unique(y))
-        if self.hlt is not None:
+        if self.hierarchy == "random":
+            self.flt = self.flt.fit(y)
+            self.hlt = self.hlt.fit(self.flt.transform(y))
+            # store hierarchy
+            self.hstruct_ = self.hlt.hstruct_
+        elif self.hierarchy == "predefined":
+            # check if labels are valid
+            if not np.all(np.array([";" in yi for yi in y])):
+                raise NotFittedError("Provided hierarchical labels are invalid. Make sure that the labels are in correct format.")
             self.hlt = self.hlt.fit(y)
-            self.hle = self.hle.fit(self.hlt.transform(y))
+            # store hierarchy
+            self.hstruct_ = self.hlt.hstruct_
         else:
-            self.hle = self.hle.fit(y)
-        # store structure of hierachy (in case needed)
-        self.hstruct_ = self.hle.hstruct_
+            # TODO: flat classification
+            self.hlt = self.hlt.fit(y)
+            self.hstruct_ = None
 
         return self
 
@@ -89,11 +108,11 @@ class LabelTransformer(TransformerMixin, BaseEstimator):
         y : array-like of shape (n_samples,)
             Target values.
         path : boolean, default=False
-            Whether paths need to be returned or encoded flat labels.
+            Whether paths need to be returned or encoded flat labels (i.e., nodes).
 
         Returns
         -------
-        y_transformed : array-like of shape (n_samples,)
+        y_transformed : list of lists of ints, representing encoded flat labels (i.e., nodes in hierarchy) or paths in hierarchy (i.e., when path is set to True).
         """
         self.fit(y)
         y_transformed = self.transform(y, path)
@@ -108,15 +127,21 @@ class LabelTransformer(TransformerMixin, BaseEstimator):
         y : array-like of shape (n_samples,)
             Target values.
         path : boolean, default=False
-            Whether paths need to be returned or encoded flat labels.
+            Whether paths need to be returned or encoded flat labels (i.e., nodes).
 
         Returns
         -------
-        y_transformed : array-like of shape (n_samples,)
+        y_transformed : list of lists of ints, representing encoded flat labels (i.e., nodes in hierarchy) or paths in hierarchy (i.e., when path is set to True).
         """
-        if self.hlt is not None:
-            y = self.hlt.transform(y)
-        y_transformed = self.hle.transform(y, path)
+        if self.hierarchy == "random":
+            y = self.flt.transform(y)
+        if path is True:
+            if self.hierarchy == "none":
+                raise NotFittedError("Cannot return paths in hierarchy for flat labels.")
+            else:
+                y_transformed = self.hlt.transform(y, path)
+        else:
+            y_transformed = self.hlt.transform(y)
 
         return y_transformed
 
@@ -125,40 +150,40 @@ class LabelTransformer(TransformerMixin, BaseEstimator):
 
         Parameters
         ----------
-        y : ndarray of shape (n_samples,)
-            Target values.
+        y : list of lists of ints, representing encoded flat labels (i.e., nodes in hierarchy)
 
         Returns
         -------
         y_transformed : ndarray of shape (n_samples,)
         """
-        y_l = [[l] for l in list(y)]
-        y_transformed = self.hle.inverse_transform(y_l)
-        if self.hlt is not None:
-            y_transformed = self.hlt.inverse_transform(y_transformed)
+        if self.hierarchy != "none":
+            y = [[l] for l in list(y)]
+        y_transformed = self.hlt.inverse_transform(y)
+        if self.hierarchy == "random":
+            y_transformed = self.flt.inverse_transform(y_transformed)
 
         return y_transformed
 
-class FHLabelTransformer(TransformerMixin, BaseEstimator):
+class FLabelTransformer(TransformerMixin, BaseEstimator):
     """ Flat to hierarchical label transformer where a hierarchy is generated by some random k-ary
     tree.
 
     Parameters
     ----------
-    k : tuple of int, default=(2,2)
-        Min and max number of children a node can have in the random generated tree.     
     sep : str, default=';'
         String used for path encodings.
+    k : tuple of int, default=(2,2)
+        Min and max number of children a node can have in the random generated tree.     
     random_state : RandomState or an int seed, default=None
         A random number generator instance to define the state of the
         random permutations generator.
     
     Attributes
     ----------
-    k : tuple of int
-        Represents min and max number of children a node can have in the random generated tree.
     sep : str
         String used for path encodings.
+    k : tuple of int
+        Represents min and max number of children a node can have in the random generated tree.
     random_state_ : RandomState or an int seed
         A random number generator instance to define the state of the
         random permutations generator.
@@ -177,13 +202,13 @@ class FHLabelTransformer(TransformerMixin, BaseEstimator):
     >>> y = np.random.choice(["A", "B", "C", "D", "E", "F", "G", 
     "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", 
     "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],1000)
-    >>> hlt = utils.FHLabelTransformer((2,4),sep=";",random_state=2021)
+    >>> hlt = utils.FLabelTransformer((2,4),sep=";",random_state=2021)
     >>> y_transform = hlt.fit_transform(y)
     >>> y_backtransform = hle.inverse_transform(y_transform)
     """
-    def __init__(self, k=(2,2), sep=';', random_state=None):
-        self.k = k
+    def __init__(self, sep=";", k=(2,2), random_state=None):
         self.sep = sep
+        self.k = k
         self.random_state = random_state
 
     def fit(self, y):
@@ -288,8 +313,8 @@ class FHLabelTransformer(TransformerMixin, BaseEstimator):
 
         return y_transformed
 
-class HFLabelTransformer(TransformerMixin, BaseEstimator):
-    """ Hierarchical to flat label transformer, where flat labels are encoded as values between 0 and n_classes-1.
+class HLabelTransformer(TransformerMixin, BaseEstimator):
+    """ Hierarchical label transformer, where hierarchical labels are encoded as nodes of hierarchy with values between 0 and n_classes-1 or paths in hierarchy.
 
     Parameters
     ----------
@@ -315,7 +340,7 @@ class HFLabelTransformer(TransformerMixin, BaseEstimator):
     Examples
     --------
     >>> y_h = np.array(["root;famA;genA","root;famA;genB","root;famB;genC","root;famB;genD"])
-    >>> hle = utils.HFLabelTransformer(sep=";")
+    >>> hle = utils.HLabelTransformer(sep=";")
     >>> y_h_e = hle.fit_transform(y_h)
     >>> y_h_e_backtransform = hle.inverse_transform(y_h_e)
     """
@@ -323,7 +348,7 @@ class HFLabelTransformer(TransformerMixin, BaseEstimator):
         self.sep = sep
     
     def fit(self, y):
-        """ Fit hierarchical to flat label encoder.
+        """ Fit hierarchical label transformer.
         
         Parameters
         ----------
@@ -387,18 +412,18 @@ class HFLabelTransformer(TransformerMixin, BaseEstimator):
         return self
 
     def fit_transform(self, y, path=False):
-        """ Fit hierarchical to flat label encoder and transform hierarchical labels to encoded flat labels.
+        """ Fit hierarchical label transformer and transform hierarchical labels.
 
         Parameters
         ----------
         y : array-like of shape (n_samples,)
             Target values.
         path : boolean, default=False
-            Whether paths need to be returned or encoded flat labels.
+            Whether paths need to be returned or encoded flat labels (i.e., nodes).
 
         Returns
         -------
-        y_transformed : array-like of shape (n_samples,)
+        y_transformed : list of lists of ints, representing encoded flat labels (nodes in hierarchy) or paths in hierarchy (when path is set to True).
         """
         self.fit(y)
         y_transformed = self.transform(y, path)
@@ -406,18 +431,18 @@ class HFLabelTransformer(TransformerMixin, BaseEstimator):
         return y_transformed
 
     def transform(self, y, path=False):
-        """ Transform hierarchical labels to encoded flat labels or paths in hierarchy.
+        """ Transform hierarchical labels to encoded flat labels.
 
         Parameters
         ----------
         y : array-like of shape (n_samples,)
             Target values.
         path : boolean, default=False
-            Whether paths need to be returned or encoded flat labels.
+            Whether paths need to be returned or encoded flat labels (i.e., nodes).
 
         Returns
         -------
-        y_transformed : array-like of shape (n_samples,)
+        y_transformed : list of lists of ints, representing encoded flat labels (i.e., nodes in hierarchy) or paths in hierarchy (i.e., when path is set to True).
         """
         check_is_fitted(self)
         y = column_or_1d(y, warn=True)
@@ -446,7 +471,7 @@ class HFLabelTransformer(TransformerMixin, BaseEstimator):
 
         Returns
         -------
-        y_transformed : ndarray of shape (n_samples,)
+        y_transformed : list of strings, representing hierarchical labels.
         """
         check_is_fitted(self)
         y_transformed = []
