@@ -6,6 +6,8 @@ Date: November 2021
 
 TODO:
     - improve checks for param in predict_set
+    - argument checks
+    - information in predict_set related to different settings
 """
 import torch
 
@@ -41,9 +43,9 @@ class SVPNet(torch.nn.Module):
         (batch_size, hidden_size).
     hidden_size : int
         Size of the hidden representation which is passed to the probabilistic model.
-    classes : list
+    classes_ : list
         List containing classes seen during training time. 
-    hierarchy : {"predefined", "random", "none"}, default="none"
+    hierarchy : {'predefined', 'random', 'none'}, default='none'
         Type of probabilistic model to consider in the set-valued predictor.
     k : tuple of int, default=None
         Min and max number of children a node can have in the random generated tree. Is only used when hierarchy='random'. 
@@ -59,18 +61,20 @@ class SVPNet(torch.nn.Module):
         super(SVPNet, self).__init__()
         self.phi = phi
         self.hidden_size = hidden_size
-        self.classes = classes
-        self.hierarchy = hierarchy # todo: argument check hierarchy
+        self.hierarchy = hierarchy
+        if self.hierarchy not in ["predefined", "random", "none"]:
+            raise ValueError("Argument hierarchy must be in {'predefined', 'random', 'none'}!")
         self.k = k
         self.random_state = random_state
         # create label transfomer
         self.transformer = LabelTransformer(self.hierarchy, self.k, random_state)
         # fit transformer
-        self.transformer.fit(self.classes)
+        self.transformer.fit(classes)
+        self.classes_ = self.transformer.hlt.classes_
         if self.hierarchy == "none":
-            self.SVP = SVP(self.hidden_size, len(self.transformer.classes_), [])
+            self.SVP = SVP(self.hidden_size, len(self.classes_), [])
         else:
-            self.SVP = SVP(self.hidden_size, len(self.transformer.classes_), self.transformer.hstruct_)
+            self.SVP = SVP(self.hidden_size, len(self.classes_), self.transformer.hstruct_)
 
     def forward(self, x, y=None):
         """ Forward pass for the set-valued predictor.
@@ -84,7 +88,8 @@ class SVPNet(torch.nn.Module):
 
         Returns
         -------
-        o : loss tensor of size (N,)
+        o : tensor of size (N,) or (N, K) 
+            Returns tensor of loss values if y is not None, and tensor with probabilities of size (N, K) otherwise. Probabilities are sorted wrt self.classes_.
         """
         # get embeddings
         x = self.phi(x)
@@ -112,7 +117,8 @@ class SVPNet(torch.nn.Module):
 
         Returns
         -------
-        o : output list of size (N,)
+        o : list of size (N,)
+            Returns output list of predicted classes.
         """
         # get embeddings
         x = self.phi(x)
@@ -121,10 +127,7 @@ class SVPNet(torch.nn.Module):
         o = self.transformer.inverse_transform(o)
 
         return o
-
-    def predict_proba(self, x):
-        return "Not implemented yet!"
-    
+ 
     def predict_set(self, x, params):
         """ Predict set function for the set-valued predictor 
         
@@ -135,9 +138,12 @@ class SVPNet(torch.nn.Module):
         params : dict
             Represents parameters for the set-valued prediction task.
 
+            TODO: information related to different settings
+
         Returns
         -------
-        o : nested output list of size (N,)
+        o : nested list of size (N,)
+            Returns output list of set-valued predictions.
         """
         # get embeddings
         x = self.phi(x)

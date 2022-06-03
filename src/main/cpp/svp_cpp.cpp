@@ -5,10 +5,9 @@
 * Date: November 2021
 *
 * TODO: 
-*   - check if we can add svp params as argument to init (avoids a couple of potential issues)
-*   - clean code
 *   - documentation
 *   - comments
+*   - clean code
 *   - improve runtime -> parallel processing of batch
 *   - improve mem consumption
 */
@@ -157,10 +156,19 @@ torch::Tensor SVP::forward(torch::Tensor input, torch::Tensor target) {
 }
     
 torch::Tensor SVP::forward(torch::Tensor input) {
-    auto o = this->root->estimator->forward(input);
-    o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1));
+    if (this->root->y.size() == 0)
+    {
+        // calculate probabilities for flat model
+        auto o = this->root->estimator->forward(input);
+        o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1));
 
-    return o;
+        return o;
+    }
+    else 
+    {
+        // calculate probabilities for hierarchical model
+        // TODO
+    }
 }
 
 std::vector<int64_t> SVP::predict(torch::Tensor input) {

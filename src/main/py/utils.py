@@ -22,7 +22,7 @@ class LabelTransformer(TransformerMixin, BaseEstimator):
     Parameters
     ----------
 
-    hierarchy : {"predefined", "random", "none"}, default="none"
+    hierarchy : {'predefined', 'random', 'none'}, default='none'
         Type of probabilistic model to consider for the label transformer.
     k : tuple of int, default=None
         Min and max number of children a node can have in the random generated tree. Is only used when hierarchy='random'. 
@@ -49,6 +49,8 @@ class LabelTransformer(TransformerMixin, BaseEstimator):
     """
     def __init__(self, hierarchy="none", k=(2,2), random_state=None):
         self.hierarchy = hierarchy
+        if self.hierarchy not in ["predefined", "random", "none"]:
+            raise ValueError("Argument hierarchy must be in {'predefined', 'random', 'none'}!")
         self.k = k
         self.random_state = random_state
         if self.hierarchy == "random":
@@ -112,7 +114,7 @@ class LabelTransformer(TransformerMixin, BaseEstimator):
 
         Returns
         -------
-        y_transformed : list of lists of ints, representing encoded flat labels (i.e., nodes in hierarchy) or paths in hierarchy (i.e., when path is set to True).
+        y_transformed : nested list of ints, representing encoded flat labels (i.e., nodes in hierarchy) or paths in hierarchy (i.e., when path is set to True).
         """
         self.fit(y)
         y_transformed = self.transform(y, path)
@@ -131,7 +133,7 @@ class LabelTransformer(TransformerMixin, BaseEstimator):
 
         Returns
         -------
-        y_transformed : list of lists of ints, representing encoded flat labels (i.e., nodes in hierarchy) or paths in hierarchy (i.e., when path is set to True).
+        y_transformed : nested list of ints, representing encoded flat labels (i.e., nodes in hierarchy) or paths in hierarchy (i.e., when path is set to True).
         """
         if self.hierarchy == "random":
             y = self.flt.transform(y)
@@ -154,7 +156,7 @@ class LabelTransformer(TransformerMixin, BaseEstimator):
 
         Returns
         -------
-        y_transformed : ndarray of shape (n_samples,)
+        y_transformed : array-like of shape (n_samples,)
         """
         if self.hierarchy != "none":
             y = [[l] for l in list(y)]
@@ -293,12 +295,12 @@ class FLabelTransformer(TransformerMixin, BaseEstimator):
 
         Parameters
         ----------
-        y : ndarray of shape (n_samples,)
+        y : array-like of shape (n_samples,)
             Target values.
 
         Returns
         -------
-        y_transformed : ndarray of shape (n_samples,)
+        y_transformed : array-like of shape (n_samples,)
         """
         check_is_fitted(self)
         y = column_or_1d(y, warn=True)
@@ -423,7 +425,7 @@ class HLabelTransformer(TransformerMixin, BaseEstimator):
 
         Returns
         -------
-        y_transformed : list of lists of ints, representing encoded flat labels (nodes in hierarchy) or paths in hierarchy (when path is set to True).
+        y_transformed : nested list of ints, representing encoded flat labels (nodes in hierarchy) or paths in hierarchy (when path is set to True).
         """
         self.fit(y)
         y_transformed = self.transform(y, path)
@@ -442,7 +444,7 @@ class HLabelTransformer(TransformerMixin, BaseEstimator):
 
         Returns
         -------
-        y_transformed : list of lists of ints, representing encoded flat labels (i.e., nodes in hierarchy) or paths in hierarchy (i.e., when path is set to True).
+        y_transformed : nested list of ints, representing encoded flat labels (i.e., nodes in hierarchy) or paths in hierarchy (i.e., when path is set to True).
         """
         check_is_fitted(self)
         y = column_or_1d(y, warn=True)
@@ -464,7 +466,7 @@ class HLabelTransformer(TransformerMixin, BaseEstimator):
 
         Parameters
         ----------
-        y : ndarray of shape (n_samples,)
+        y : array-like of shape (n_samples,)
             Target values.
         path : boolean, default=False
             Whether y represents paths or encoded flat labels.
