@@ -210,16 +210,21 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
     ----------
     estimator : scikit-learn base estimator
         Represents the base estimator for the classification task in each node.
-    sep : str, default=';'
-        Path separator used for processing the hierarchical labels. If set to None, a random hierarchy is created and provided flat labels are converted, accordingly.
-    k : tuple of int, default=(2,2)
-        Min and max number of children a node can have in the random generated tree. Is ignored when sep is not set to None.
+    hierarchy : {'predefined', 'random', 'none'}, default='none'
+        Type of probabilistic model to consider in the set-valued predictor.
+    k : tuple of int, default=None
+        Min and max number of children a node can have in the random generated tree. Is only used when hierarchy='random'.
     n_jobs : int, default=None
         The number of jobs to run in parallel. Currently this applies to fit, and predict.  
     random_state : RandomState or an int seed, default=None
-        A random number generator instance to define the state of the random generator.
+        A random number generator instance to define the state of the
+        random generator.
     verbose : int, default=0
         Controls the verbosity: the higher, the more messages
+
+    Attributes
+    ----------
+    TODO
 
     Examples
     --------
@@ -235,9 +240,9 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
     >>> clf.fit(X, y)
     >>> clf.score(X, y)
     """
-    def __init__(self, estimator, sep=';', k=(2,2), n_jobs=None, random_state=None, verbose=0):
+    def __init__(self, estimator, hierarchy="none", k=None, n_jobs=None, random_state=None, verbose=0):
         self.estimator = clone(estimator)
-        self.sep = sep
+        self.hierarchy = hierarchy
         self.k = k
         self.n_jobs = n_jobs
         self.random_state = random_state
@@ -294,7 +299,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         return {node["lbl"]: node}
         
     def fit(self, X, y):
-        """ Implementation of the fitting function for the LCPN classifier.
+        """ Implementation of the fitting function for the SVPClassifier object.
 
         Parameters
         ----------
