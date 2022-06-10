@@ -15,7 +15,6 @@ from sklearn.utils.validation import check_is_fitted, check_random_state
 from sklearn.exceptions import NotFittedError
 from sklearn import preprocessing
 
-
 class LabelTransformer(TransformerMixin, BaseEstimator):
     """ Label transformer for set-valued predictors.
     
@@ -47,7 +46,7 @@ class LabelTransformer(TransformerMixin, BaseEstimator):
     classes_ : list 
         Classes (original) seen during fit.
     """
-    def __init__(self, hierarchy="none", k=(2,2), random_state=None):
+    def __init__(self, hierarchy="none", k=None, random_state=None):
         self.hierarchy = hierarchy
         if self.hierarchy not in ["predefined", "random", "none"]:
             raise ValueError("Argument hierarchy must be in {'predefined', 'random', 'none'}!")
@@ -96,7 +95,6 @@ class LabelTransformer(TransformerMixin, BaseEstimator):
             # store hierarchy
             self.hstruct_ = self.hlt.hstruct_
         else:
-            # TODO: flat classification
             self.hlt = self.hlt.fit(y)
             self.hstruct_ = None
 
@@ -114,14 +112,16 @@ class LabelTransformer(TransformerMixin, BaseEstimator):
 
         Returns
         -------
-        y_transformed : nested list of ints, representing encoded flat labels (i.e., nodes in hierarchy) or paths in hierarchy (i.e., when path is set to True).
+        y_transformed : array-like of shape (n_samples,) 
+            Represents encoded flat labels (i.e., nodes in hierarchy) or paths in hierarchy (i.e., when path is set to True) when hierarchy !="none",
+            or flat labels otherwise. 
         """
         self.fit(y)
         y_transformed = self.transform(y, path)
 
         return y_transformed
 
-    def transform(self, y, path=True):
+    def transform(self, y, path=False):
         """ Transform labels.
 
         Parameters
@@ -133,7 +133,8 @@ class LabelTransformer(TransformerMixin, BaseEstimator):
 
         Returns
         -------
-        y_transformed : nested list of ints, representing encoded flat labels (i.e., nodes in hierarchy) or paths in hierarchy (i.e., when path is set to True).
+        y_transformed : array-like of shape (n_samples,) 
+            Represents encoded flat labels (i.e., nodes in hierarchy) or paths in hierarchy (i.e., when path is set to True) when hierarchy !="none", or flat labels otherwise. 
         """
         if self.hierarchy == "random":
             y = self.flt.transform(y)
@@ -152,7 +153,8 @@ class LabelTransformer(TransformerMixin, BaseEstimator):
 
         Parameters
         ----------
-        y : list of lists of ints, representing encoded flat labels (i.e., nodes in hierarchy)
+        y : array-like of shape (n_samples,) 
+            Represents encoded flat labels (i.e., nodes in hierarchy) when hierarchy !="none", or flat labels otherwise. 
 
         Returns
         -------

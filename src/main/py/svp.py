@@ -70,7 +70,11 @@ class SVPNet(torch.nn.Module):
         self.transformer = LabelTransformer(self.hierarchy, self.k, random_state)
         # fit transformer
         self.transformer.fit(classes)
-        self.classes_ = self.transformer.hlt.classes_
+        # register classes 
+        if self.hierarchy != "random":
+            self.classes_ = self.transformer.hlt.classes_
+        else:
+            self.classes_ = self.transformer.flt.inverse_transform(self.transformer.hlt.classes_)
         if self.hierarchy == "none":
             self.SVP = SVP(self.hidden_size, len(self.classes_), [])
         else:

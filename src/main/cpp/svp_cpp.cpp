@@ -166,8 +166,32 @@ torch::Tensor SVP::forward(torch::Tensor input) {
     }
     else 
     {
-        // calculate probabilities for hierarchical model
-        // TODO
+        // init tensor containing leaf probabilities
+        torch::Tensor o = torch::zeros({input.size(0), this->num_classes});
+        // run over each sample in batch
+        for (int64_t bi=0; bi<input.size(0); ++bi)
+        {
+            std::priority_queue<QNode> q;
+            q.push({this->root, 1.0});
+            while (!q.empty()) {
+                QNode current {q.top()};
+                q.pop();
+                if (current.node->y.size() == 1) {
+                    o[bi][current.node->y[0]] = current.prob;
+                } else {
+                    // forward step
+                    auto o = current.node->estimator->forward(input[bi].view({1,-1}));
+                    o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1)).to(torch::kCPU);
+                    for (int64_t i = 0; i<static_cast<int64_t>(current.node->chn.size()); ++i)
+                    {
+                        HNode* c_node {current.node->chn[i]};
+                        q.push({c_node, current.prob*o[0][i].item<double>()});
+                    }
+                }
+            }
+        }
+
+        return o;
     }
 }
 

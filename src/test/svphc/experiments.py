@@ -37,6 +37,7 @@ def traintestsvp(args):
         model = SVPNet(phi, args.hidden, classes, hierarchy="none", random_state=args.randomseed)
     if args.gpu:
         model = model.cuda()
+    print(model.transformer.hstruct_)
     # optimizer
     optimizer = torch.optim.SGD(model.parameters(),lr=args.learnrate,momentum=args.momentum)
     # train
