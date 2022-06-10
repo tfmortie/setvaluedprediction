@@ -73,19 +73,25 @@ def setsize(predictions):
 """ parser for SVP parameters """
 def paramparser(args):
     param_list = []
-    if args.constraint == "none":
+    if args.svptype == "fb":
         for (c,b) in list(product(map(int,args.c),map(int,args.beta))):
-            params = {"constraint": args.constraint, "c": c}
+            params = {"svptype": args.svptype, "c": c}
             params["beta"] = b
             param_list.append(params)
-    elif args.constraint == "error":
+    elif args.svptype == "dg":
+        for (c,d,g) in list(product(map(int,args.c),map(float,args.delta),map(float,args.gamma))):
+            params = {"svptype": args.svptype, "c": c}
+            params["delta"] = d
+            params["gamma"] = g
+            param_list.append(params)
+    elif args.svptype == "error":
         for (c,e) in list(product(map(int,args.c),map(float,args.error))):
-            params = {"constraint": args.constraint, "c": c}
+            params = {"svptype": args.svptype, "c": c}
             params["error"] = e
             param_list.append(params)
     else:
         for (c,k) in list(product(map(int,args.c),map(int,args.size))):
-            params = {"constraint": args.constraint, "c": c}
+            params = {"svptype": args.svptype, "c": c}
             params["size"] = k
             param_list.append(params)
     

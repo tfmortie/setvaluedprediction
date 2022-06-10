@@ -23,14 +23,14 @@ def get_hstruct_tensor(classes, params):
     hstruct = hlt.hstruct_
     hstruct_t = []
     rc = params["c"]
-    if params["constraint"] == "size":
+    if params["svptype"] == "sizectrl":
         rc = min(params["size"],rc)
     for ci in range(1,rc+1):
         combs = list(combinations(hstruct, ci))
         for c in combs:
             if ci==1:
                 c=c[0]
-                if params["constraint"] == "size":
+                if params["svptype"] == "sizectrl":
                     if params["size"] >= len(c):
                         crow = np.zeros((1,len(hstruct[0])),dtype=np.uint8)
                         crow[0,c] = 1
@@ -41,7 +41,7 @@ def get_hstruct_tensor(classes, params):
                     hstruct_t.append(crow)
             else:
                 if len(set(sum(list(c),[])))==len(sum(list(c),[])) and (set(sum(list(c),[])) not in [set(n) for n in hstruct]):
-                    if params["constraint"] == "size":
+                    if params["svptype"] == "sizectrl":
                         if params["size"] >= len(sum(c,[])):
                             crow = np.zeros((1,len(hstruct[0])),dtype=np.uint8)
                             crow[0,sum(c,[])] = 1

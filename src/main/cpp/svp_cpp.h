@@ -10,24 +10,27 @@
 
 #include <torch/torch.h>
 
-/* constraint type */
-enum class ConstraintType {
-    NONE,
-    SIZE,
-    ERROR
+/* Set-valued predictor type */
+enum class SVPType {
+    FB,
+    DG,
+    SIZECTRL,
+    ERRORCTRL
 };
 
-/* defines the set-valued prediction problem */
+/* Defines the set-valued prediction problem */
 struct param
 {
-    ConstraintType constr {ConstraintType::NONE};
+    SVPType svptype {SVPType::FB}; /* by default (1/x)-utility maximization by means of f-measure */
     int64_t beta {1};
+    double delta {1.6};
+    double gamma {0.6};
     int64_t size {1};
     double error {0.05};
     int64_t c {1}; /* representation complexity */
 };
 
-/* structure which represents the basic component for SVP  */
+/* Structure which represents the basic component for SVP  */
 struct HNode : torch::nn::Module {
     // attributes
     torch::nn::Linear estimator {nullptr};
@@ -48,7 +51,7 @@ struct QNode
     bool operator<(const QNode& n) const { return prob < n.prob;}
 };
 
-/* class which represents an SVP object */
+/* Class which represents an SVP object */
 struct SVP : torch::nn::Module {
     // attributes
     int64_t num_classes;
@@ -63,6 +66,7 @@ struct SVP : torch::nn::Module {
     std::vector<int64_t> predict(torch::Tensor input); /* top-1 prediction */
     // set-valued prediction functions
     std::vector<std::vector<int64_t>> predict_set_fb(torch::Tensor input, int64_t beta, int64_t c);
+    std::vector<std::vector<int64_t>> predict_set_dg(torch::Tensor input, double delta, double gamma, int64_t c);
     std::vector<std::vector<int64_t>> predict_set_size(torch::Tensor input, int64_t size, int64_t c);
     std::vector<std::vector<int64_t>> predict_set_error(torch::Tensor input, double error, int64_t c);
     std::vector<std::vector<int64_t>> predict_set(torch::Tensor input, const param& params);

@@ -156,26 +156,33 @@ class SVPNet(torch.nn.Module):
             c = int(params["c"])
         except ValueError:
             raise ValueError("Invalid representation complexity {0}. Must be integer.".format(params["c"]))
-        if params["constraint"] == "none":
+        if params["svptype"] == "fb":
             try:
                 beta = int(params["beta"])
             except ValueError:
                 raise ValueError("Invalid beta {0}. Must be positive integer.".format(params["beta"]))
             o_t = self.SVP.predict_set_fb(x, beta, c)
-        elif params["constraint"] == "size":
+        elif params["svptype"] == "dg":
+            try:
+                delta = float(params["delta"])
+                gamma = float(params["gamma"])
+            except ValueError:
+                raise ValueError("Invalid delta {0} or gamma {1}. Must be positive float.".format(params["delta"], params["gamma"]))
+            o_t = self.SVP.predict_set_dg(x, delta, gamma, c)
+        elif params["svptype"] == "sizectrl":
             try:
                 size = int(params["size"])
             except ValueError:
                 raise ValueError("Invalid size {0}. Must be positive integer.".format(params["size"]))
             o_t = self.SVP.predict_set_size(x, size, c)
-        elif params["constraint"] == "error":
+        elif params["svptype"] == "errorctrl":
             try:
                 error = float(params["error"])
             except ValueError:
                 raise ValueError("Invalid error {0}. Must be a real number in [0,1].".format(params["error"]))
             o_t = self.SVP.predict_set_error(x, error, c)
         else: 
-            raise ValueError("Invalid constraint {0}! Valid options: {none, size, error}.".format(params["constraint"]))
+            raise ValueError("Invalid SVP type {0}! Valid options: {fb, dg, sizectrl, errorctrl}.".format(params["svptype"]))
         # inverse transform sets
         o = [] 
         for o_t_i in o_t:

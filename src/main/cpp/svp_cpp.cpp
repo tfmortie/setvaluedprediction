@@ -229,8 +229,21 @@ std::vector<std::vector<int64_t>> SVP::predict_set_fb(torch::Tensor input, int64
     std::vector<std::vector<int64_t>> prediction;
     // init problem
     param p;
-    p.constr = ConstraintType::NONE;
+    p.svptype = SVPType::FB;
     p.beta = beta;
+    p.c = c;
+    prediction = this->predict_set(input, p);
+    
+    return prediction;
+}
+
+std::vector<std::vector<int64_t>> SVP::predict_set_dg(torch::Tensor input, double delta, double gamma, int64_t c) {
+    std::vector<std::vector<int64_t>> prediction;
+    // init problem
+    param p;
+    p.svptype = SVPType::DG;
+    p.delta = delta;
+    p.gamma = gamma;
     p.c = c;
     prediction = this->predict_set(input, p);
     
@@ -241,7 +254,7 @@ std::vector<std::vector<int64_t>> SVP::predict_set_size(torch::Tensor input, int
     std::vector<std::vector<int64_t>> prediction;
     // init problem
     param p;
-    p.constr = ConstraintType::SIZE;
+    p.svptype = SVPType::SIZECTRL;
     p.size = size;
     p.c = c;
     prediction = this->predict_set(input, p);
@@ -253,7 +266,7 @@ std::vector<std::vector<int64_t>> SVP::predict_set_error(torch::Tensor input, do
     std::vector<std::vector<int64_t>> prediction;
     // init problem
     param p;
-    p.constr = ConstraintType::ERROR;
+    p.svptype = SVPType::ERRORCTRL;
     p.error = error;
     p.c = c;
     prediction = this->predict_set(input, p);
@@ -293,7 +306,7 @@ std::vector<std::vector<int64_t>> SVP::gsvbop(torch::Tensor input, const param& 
         {
             yhat.push_back(idx[bi][yi].item<int64_t>());
             yhat_p += o[bi][idx[bi][yi]].to(torch::kCPU).item<double>();
-            if (p.constr == ConstraintType::NONE) {
+            if (p.svptype == SVPType::FB) {
                 double yhat_u {yhat_p*(1.0+pow(p.beta,2.0))/(yi+1+pow(p.beta,2.0))};
                 if (yhat_u >= ystar_u) {
                     ystar = yhat;
@@ -301,7 +314,15 @@ std::vector<std::vector<int64_t>> SVP::gsvbop(torch::Tensor input, const param& 
                 } else {
                     break;
                 }
-            } else if (p.constr == ConstraintType::SIZE) {
+            } else if (p.svptype == SVPType::DG) {
+                double yhat_u {yhat_p*((p.delta/(yi+1))-(p.gamma/pow((yi+1),2.0)))};
+                if (yhat_u >= ystar_u) {
+                    ystar = yhat;
+                    ystar_u = yhat_u;
+                } else {
+                    break;
+                }
+            } else if (p.svptype == SVPType::SIZECTRL) {
                 if (yi+1 > p.size) {
                     break;
                 } else {
@@ -337,14 +358,21 @@ std::vector<std::vector<int64_t>> SVP::gsvbop_r(torch::Tensor input, const param
         for (int64_t si=0; si<o.size(1); ++si)
         {
             double si_curr_p {o[bi][si].item<double>()};
-            if (p.constr == ConstraintType::NONE) {
+            if (p.svptype == SVPType::FB) {
                 double si_curr_size {this->hstruct.index({si,"..."}).sum().to(torch::kCPU).item<double>()};
                 double si_curr_u {si_curr_p*(1.0+pow(p.beta,2.0))/(si_curr_size+pow(p.beta,2.0))};
                 if (si_curr_u >= si_optimal_u) {
                     si_optimal = si;
                     si_optimal_u = si_curr_u;
                 }
-            } else if (p.constr == ConstraintType::SIZE) {
+            } else if (p.svptype == SVPType::DG) {
+                double si_curr_size {this->hstruct.index({si,"..."}).sum().to(torch::kCPU).item<double>()};
+                double si_curr_u {si_curr_p*((p.delta/(si_curr_size))-(p.gamma/pow((si_curr_size),2.0)))};
+                if (si_curr_u >= si_optimal_u) {
+                    si_optimal = si;
+                    si_optimal_u = si_curr_u;
+                }
+            } else if (p.svptype == SVPType::SIZECTRL) {
                 if (si_curr_p >= si_optimal_u) {
                     si_optimal = si;
                     si_optimal_u = si_curr_p;
@@ -390,7 +418,7 @@ std::vector<std::vector<int64_t>> SVP::gsvbop_hf(torch::Tensor input, const para
                 // update solution
                 yhat.push_back(current.node->y[0]);
                 yhat_p += current.prob;
-                if (p.constr == ConstraintType::NONE) {
+                if (p.svptype == SVPType::FB) {
                     double yhat_u {yhat_p*(1.0+pow(p.beta,2.0))/(yhat.size()+pow(p.beta,2.0))};
                     if (yhat_u >= ystar_u) {
                         ystar = yhat;
@@ -398,7 +426,15 @@ std::vector<std::vector<int64_t>> SVP::gsvbop_hf(torch::Tensor input, const para
                     } else {
                         break;
                     }
-                } else if (p.constr == ConstraintType::SIZE) {
+                } else if (p.svptype == SVPType::DG) {
+                    double yhat_u {yhat_p*((p.delta/(yhat.size()))-(p.gamma/pow((yhat.size()),2.0)))};
+                    if (yhat_u >= ystar_u) {
+                        ystar = yhat;
+                        ystar_u = yhat_u;
+                    } else {
+                        break;
+                    }
+                } else if (p.svptype == SVPType::SIZECTRL) {
                     if (static_cast<int64_t>(yhat.size()) > p.size) {
                         break;
                     } else {
@@ -459,13 +495,19 @@ std::tuple<std::vector<int64_t>, double> SVP::_gsvbop_hf_r(torch::Tensor input, 
             ycur.push_back(current.node->y[i]);
         }
         ycur_p = ycur_p + current.prob;
-        if (p.constr == ConstraintType::NONE) {
+        if (p.svptype == SVPType::FB) {
             double ycur_u = ycur_p*(1.0+pow(p.beta,2.0))/(static_cast<double>(ycur.size())+pow(p.beta,2.0));
             if (ycur_u >= ystar_u) {
                 ystar = ycur;
                 ystar_u = ycur_u;
             }
-        } else if (p.constr == ConstraintType::SIZE) {
+        } else if (p.svptype == SVPType::DG) {
+            double ycur_u {ycur_p*((p.delta/(static_cast<double>(ycur.size())))-(p.gamma/pow((static_cast<double>(ycur.size())),2.0)))};
+            if (ycur_u >= ystar_u) {
+                ystar = ycur;
+                ystar_u = ycur_u;
+            }
+        } else if (p.svptype == SVPType::SIZECTRL) {
             if (static_cast<int64_t>(ycur.size()) <= p.size) {
                 double ycur_u = ycur_p;
                 if (ycur_u >= ystar_u) {
@@ -482,13 +524,13 @@ std::tuple<std::vector<int64_t>, double> SVP::_gsvbop_hf_r(torch::Tensor input, 
                 } 
             }
         }
-        if (p.constr == ConstraintType::NONE) {
+        if ((p.svptype == SVPType::FB) || (p.svptype == SVPType::DG)) {
             if (c > 1) {
                 std::tuple<std::vector<int64_t>, double> bop {this->_gsvbop_hf_r(input, p, c-1, ystar, ystar_u, ycur, ycur_p, q)};
                 ystar = std::get<0>(bop);
                 ystar_u = std::get<1>(bop);
             }
-        } else if (p.constr == ConstraintType::SIZE) {
+        } else if (p.svptype == SVPType::SIZECTRL) {
             if (static_cast<int64_t>(ycur.size()) <= p.size) {
                 if (c > 1) {
                     std::tuple<std::vector<int64_t>, double> bop {this->_gsvbop_hf_r(input, p, c-1, ystar, ystar_u, ycur, ycur_p, q)};
@@ -498,7 +540,7 @@ std::tuple<std::vector<int64_t>, double> SVP::_gsvbop_hf_r(torch::Tensor input, 
                     break;
                 }
             }
-        } else if (p.constr == ConstraintType::ERROR) {
+        } else if (p.svptype == SVPType::ERRORCTRL) {
             if (ycur_p < 1.0-p.error) {
                 if (c > 1) {
                     std::tuple<std::vector<int64_t>, double> bop {this->_gsvbop_hf_r(input, p, c-1, ystar, ystar_u, ycur, ycur_p, q)};
@@ -543,6 +585,7 @@ PYBIND11_MODULE(svp_cpp, m) {
         .def("forward", py::overload_cast<torch::Tensor, std::vector<std::vector<int64_t>>>(&SVP::forward))
         .def("predict", &SVP::predict, "input"_a)
         .def("predict_set_fb", &SVP::predict_set_fb, "input"_a, "beta"_a, "c"_a)
+        .def("predict_set_dg", &SVP::predict_set_dg, "input"_a, "delta"_a, "gamma"_a, "c"_a)
         .def("predict_set_size", &SVP::predict_set_size, "input"_a, "size"_a, "c"_a)
         .def("predict_set_error", &SVP::predict_set_error, "input"_a, "error"_a, "c"_a)
         .def("set_hstruct", &SVP::set_hstruct, "hstruct"_a);
