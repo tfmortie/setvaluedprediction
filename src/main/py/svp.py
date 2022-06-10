@@ -1,5 +1,5 @@
 """
-Implementation for PyTorch and Scikit-learn set-valued predictors.
+Implementation of PyTorch and Scikit-learn set-valued predictors.
 
 Author: Thomas Mortier
 Date: November 2021
@@ -92,12 +92,12 @@ class SVPNet(torch.nn.Module):
         else:
             self.SVP = SVP(self.hidden_size, len(self.classes_), self.transformer.hstruct_)
 
-    def forward(self, x, y=None):
+    def forward(self, X, y=None):
         """ Forward pass for the set-valued predictor.
         
         Parameters
         ----------
-        x : input tensor of size (N, D) 
+        X : input tensor of size (N, D) 
             Represents a batch.
         y : target tensor or list, default=None
             Represents the target labels.
@@ -108,7 +108,7 @@ class SVPNet(torch.nn.Module):
             Returns tensor of loss values if y is not None, and tensor with probabilities of size (N, K) otherwise. Probabilities are sorted wrt self.classes_.
         """
         # get embeddings
-        x = self.phi(x)
+        x = self.phi(X)
         if y is not None:
             if type(y) is torch.Tensor:
                 y = y.tolist()
@@ -123,12 +123,12 @@ class SVPNet(torch.nn.Module):
 
         return o
 
-    def predict(self, x):
+    def predict(self, X):
         """ Predict function for the set-valued predictor.
         
         Parameters
         ----------
-        x : input tensor of size (N, D) 
+        X : input tensor of size (N, D) 
             Represents a batch.
 
         Returns
@@ -137,19 +137,19 @@ class SVPNet(torch.nn.Module):
             Returns output list of predicted classes.
         """
         # get embeddings
-        x = self.phi(x)
+        x = self.phi(X)
         # get top-1 predictions
         o = self.SVP.predict(x) 
         o = self.transformer.inverse_transform(o)
 
         return o
  
-    def predict_set(self, x, params):
+    def predict_set(self, X, params):
         """ Predict set function for the set-valued predictor 
         
         Parameters
         ----------
-        x : input tensor of size (N, D) 
+        X : input tensor of size (N, D) 
             Represents a batch.
         params : dict
             Represents parameters for the set-valued prediction task.
@@ -162,7 +162,7 @@ class SVPNet(torch.nn.Module):
             Returns output list of set-valued predictions.
         """
         # get embeddings
-        x = self.phi(x)
+        x = self.phi(X)
         # process params and get set
         try:
             c = int(params["c"])
@@ -294,7 +294,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         return {node["lbl"]: node}
         
     def fit(self, X, y):
-        """Implementation of the fitting function for the LCPN classifier.
+        """ Implementation of the fitting function for the LCPN classifier.
 
         Parameters
         ----------
@@ -427,7 +427,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         return {i: preds}
     
     def predict(self, X, bop=False):
-        """Return class predictions.
+        """ Return class predictions.
 
         Parameters
         ----------
@@ -496,7 +496,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             return scores
     
     def predict_proba(self, X):
-        """Return probability estimates.
+        """ Return probability estimates.
 
         Important: the returned estimates for all classes are ordered by the
         label of classes.
@@ -561,8 +561,11 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             print(_message_with_time("LCPN", "predicting probabilities", stop_time-start_time))
         return np.hstack(probs)
 
+    def predict_set(self, X , params):
+        return "Not implemented yet!"
+
     def score(self, X, y):
-        """Return mean accuracy score.
+        """ Return mean accuracy score.
         
         Parameters
         ----------
@@ -592,7 +595,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         return score
 
     def score_nodes(self, X, y):
-        """Return mean accuracy score for each node in the hierarchy.
+        """ Return mean accuracy score for each node in the hierarchy.
         
         Parameters
         ----------
