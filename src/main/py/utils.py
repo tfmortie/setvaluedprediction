@@ -1,12 +1,13 @@
 """ 
-Some important transformers and functions for working with set-valued predictors.
+Some important classes for working with set-valued predictors.
 
 Author: Thomas Mortier
 Date: November 2021
 
 TODO: 
-    - argument checks
+    - argument checks for transformers
 """
+import heapq
 import numpy as np
 
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -14,6 +15,33 @@ from sklearn.utils import column_or_1d
 from sklearn.utils.validation import check_is_fitted, check_random_state
 from sklearn.exceptions import NotFittedError
 from sklearn import preprocessing
+
+class PriorityQueue():
+    """ HeapQ used by SVPClassifier.
+    """
+    def __init__(self):
+        self.list = []
+        
+    def push(self,prob,node):
+        heapq.heappush(self.list,[1-prob,node])
+
+    def pop(self):
+        return heapq.heappop(self.list)
+
+    def remove_all(self):
+        self.list = []
+        
+    def size(self):
+        return len(self.list)
+
+    def is_empty(self):
+        return len(self.list) == 0
+
+    def __repr__(self):
+        ret_str = ""
+        for l in self.list:
+            ret_str+="({0:.2f},{1}), ".format(1-l[0],l[1])
+        return ret_str
 
 class LabelTransformer(TransformerMixin, BaseEstimator):
     """ Label transformer for set-valued predictors.
@@ -206,7 +234,7 @@ class FLabelTransformer(TransformerMixin, BaseEstimator):
     >>> y = np.random.choice(["A", "B", "C", "D", "E", "F", "G", 
     "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", 
     "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],1000)
-    >>> hlt = utils.FLabelTransformer((2,4),sep=";",random_state=2021)
+    >>> hlt = utils.FLabelTransformer(sep=";", k=(2,4), random_state=2021)
     >>> y_transform = hlt.fit_transform(y)
     >>> y_backtransform = hle.inverse_transform(y_transform)
     """

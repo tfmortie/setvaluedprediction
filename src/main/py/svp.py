@@ -16,7 +16,7 @@ import numpy as np
 
 from svp_cpp import SVP
 from .utils import LabelTransformer
-from .utils import HLabelEncoder, PriorityQueue
+from .utils import FLabelTransformer, PriorityQueue
 from sklearn.base import BaseEstimator, ClassifierMixin, clone
 from sklearn.utils import _message_with_time
 from sklearn.utils.validation import check_X_y, check_array, check_random_state
@@ -284,9 +284,9 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             y_transform = []
             sel_ind = []
             for i,y in enumerate(self.y_):
-                if node["lbl"] in y.split(self.sep):
+                if node["lbl"] in y.split(";"):
                      # need to include current label and sample (as long as it's "complete")
-                     y_split = y.split(self.sep)
+                     y_split = y.split(";")
                      if y_split.index(node["lbl"]) < len(y_split)-1:
                          y_transform.append(y_split[y_split.index(node["lbl"])+1])
                          sel_ind.append(i)
@@ -324,122 +324,107 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         self.n_outputs_ = 1
         self.X_ = X
         self.y_ = y
-        # store label of root node
-        self.rlbl = self.y_[0].split(self.sep)[0]
-        # init tree
-        self.tree = {self.rlbl: {
-                "lbl": self.rlbl,
-                "estimator": None,
-                "children": [],
-                "parent": None}}
-        # check if sep is None or str
-        if type(self.sep) != str and self.sep is not None:
-            raise TypeError("Parameter sep must be of type str or None.")
-        # init and fit the hierarchical model
-        start_time = time.time()
-        # first init the tree 
-        try:
-            if self.sep is None:
-                # transform labels to labels in some random hierarchy
-                self.sep = ';'
-                self.label_encoder_ = HLabelEncoder(k=self.k,random_state=self.random_state_)
-                self.y_ = self.label_encoder_.fit_transform(self.y_) 
-            else:
-                self.label_encoder_ = None
-            for lbl in self.y_:
-                self._add_path(lbl.split(self.sep))
-            # now proceed to fitting
-            with parallel_backend("loky"):
-                fitted_tree = Parallel(n_jobs=self.n_jobs)(delayed(self._fit_node)(self.tree[node]) for node in self.tree)
-            self.tree = {k: v for d in fitted_tree for k, v in d.items()}
-        except NotFittedError as e:
-            raise NotFittedError("Tree fitting failed! Make sure that the provided data is in the correct format.")
-        # now store classes (leaf nodes) seen during fit
-        cls = []
-        nodes_to_visit = [self.tree[self.rlbl]]
-        while len(nodes_to_visit) > 0:
-            curr_node = nodes_to_visit.pop()
-            for c in curr_node["children"]:
-                # check if child is leaf node 
-                if c not in self.tree:
-                    cls.append(c)
-                else:
-                    # add child to nodes_to_visit
-                    nodes_to_visit.append(self.tree[c])
-        self.classes_ = cls 
-        # make sure that classes_ are in same format of original labels
-        if self.label_encoder_ is not None:
-            self.classes_ = self.label_encoder_.inverse_transform(self.classes_)
-        else:
-            # construct dict with leaf node lbls -> path mappings
-            lbl_to_path = {yi.split(self.sep)[-1]: yi for yi in self.y_}
-            self.classes_ = [lbl_to_path[cls] for cls in self.classes_]
-        stop_time = time.time()
-        if self.verbose >= 1:
-            print(_message_with_time("LCPN", "fitting", stop_time-start_time))
-        return self
- 
-    def _predict_nbop(self, i, X):
-        preds = []
-        # run over all samples
-        for x in X:
-            x = x.reshape(1,-1)
-            pred = self.rlbl
-            pred_path = [pred]
-            while pred in self.tree:
-                curr_node = self.tree[pred]
-                # check if we have a node with single path
-                if curr_node["estimator"] is not None:
-                    pred = curr_node["estimator"].predict(x)[0]
-                else: 
-                    pred = curr_node["children"][0]
-                pred_path.append(pred)
-            preds.append(self.sep.join(pred_path))
-        return {i: preds}
-      
-    def _predict_bop(self, i, X, scores):
-        preds = []
-        # run over all samples
-        for x in X:
-            x = x.reshape(1,-1)
-            nodes_to_visit = PriorityQueue()
-            nodes_to_visit.push(1.,self.rlbl)
-            pred = None
-            while not nodes_to_visit.is_empty():
-                curr_node_prob, curr_node = nodes_to_visit.pop()
-                curr_node_lbl = curr_node.split(self.sep)[-1]
-                curr_node_prob = 1-curr_node_prob
-                # check if we are at a leaf node
-                if curr_node_lbl not in self.tree:
-                    pred = curr_node
-                    break
-                else:
-                    curr_node_v = self.tree[curr_node_lbl]
-                    # check if we have a node with single path
-                    if curr_node_v["estimator"] is not None:
-                        # get probabilities
-                        curr_node_ch_probs = self._predict_proba(curr_node_v["estimator"], x, scores)
-                        # apply chain rule of probability
-                        curr_node_ch_probs = curr_node_ch_probs*curr_node_prob
-                        # add children to queue
-                        for j,c in enumerate(curr_node_v["children"]):
-                            prob_child = curr_node_ch_probs[:,j][0]
-                            nodes_to_visit.push(prob_child, curr_node+self.sep+c)
+        # check if flat or hierarchical model
+        if self.hierarchy != "none":
+            # init and fit the hierarchical model
+            start_time = time.time()
+            # first init the tree 
+            try:
+                if self.hierarchy == "random":
+                    if self.k is None:
+                        self.label_encoder_ = FLabelTransformer(sep=";", k=(2,2), random_state=self.random_state_)
                     else:
-                        c = curr_node_v["children"][0]
-                        nodes_to_visit.push(curr_node_prob,curr_node+self.sep+c)
-            preds.append(pred)
+                        self.label_encoder_ = FLabelTransformer(sep=";", k=self.k, random_state=self.random_state_)
+                    self.y_ = self.label_encoder_.fit_transform(self.y_) 
+                else:
+                    self.label_encoder_ = None
+                # store label of root node
+                self.rlbl = self.y_[0].split(";")[0]
+                # init tree
+                self.tree = {self.rlbl: {
+                    "lbl": self.rlbl,
+                    "estimator": None,
+                    "children": [],
+                    "parent": None}}
+                for lbl in self.y_:
+                    self._add_path(lbl.split(";"))
+                # now proceed to fitting
+                with parallel_backend("loky"):
+                    fitted_tree = Parallel(n_jobs=self.n_jobs)(delayed(self._fit_node)(self.tree[node]) for node in self.tree)
+                self.tree = {k: v for d in fitted_tree for k, v in d.items()}
+            except NotFittedError as e:
+                raise NotFittedError("Tree fitting failed! Make sure that the provided data is in the correct format.")
+            # now store classes (leaf nodes) seen during fit
+            cls = []
+            nodes_to_visit = [self.tree[self.rlbl]]
+            while len(nodes_to_visit) > 0:
+                curr_node = nodes_to_visit.pop()
+                for c in curr_node["children"]:
+                    # check if child is leaf node 
+                    if c not in self.tree:
+                        cls.append(c)
+                    else:
+                        # add child to nodes_to_visit
+                        nodes_to_visit.append(self.tree[c])
+            self.classes_ = cls 
+            # make sure that classes_ are in same format of original labels
+            if self.label_encoder_ is not None:
+                self.classes_ = self.label_encoder_.inverse_transform(self.classes_)
+            else:
+                # construct dict with leaf node lbls -> path mappings
+                lbl_to_path = {yi.split(";")[-1]: yi for yi in self.y_}
+                self.classes_ = [lbl_to_path[cls] for cls in self.classes_]
+            stop_time = time.time()
+            if self.verbose >= 1:
+                print(_message_with_time("SVPClassifier", "fitting", stop_time-start_time))
+        else:
+            self.estimator.fit(X, y)
+        return self
+  
+    def _predict(self, i, X, scores):
+        preds = []
+        if self.hierarchy != "none":
+            # run over all samples
+            for x in X:
+                x = x.reshape(1,-1)
+                nodes_to_visit = PriorityQueue()
+                nodes_to_visit.push(1.,self.rlbl)
+                pred = None
+                while not nodes_to_visit.is_empty():
+                    curr_node_prob, curr_node = nodes_to_visit.pop()
+                    curr_node_lbl = curr_node.split(";")[-1]
+                    curr_node_prob = 1-curr_node_prob
+                    # check if we are at a leaf node
+                    if curr_node_lbl not in self.tree:
+                        pred = curr_node
+                        break
+                    else:
+                        curr_node_v = self.tree[curr_node_lbl]
+                        # check if we have a node with single path
+                        if curr_node_v["estimator"] is not None:
+                            # get probabilities
+                            curr_node_ch_probs = self._predict_proba(curr_node_v["estimator"], x, scores)
+                            # apply chain rule of probability
+                            curr_node_ch_probs = curr_node_ch_probs*curr_node_prob
+                            # add children to queue
+                            for j,c in enumerate(curr_node_v["children"]):
+                                prob_child = curr_node_ch_probs[:,j][0]
+                                nodes_to_visit.push(prob_child, curr_node+";"+c)
+                        else:
+                            c = curr_node_v["children"][0]
+                            nodes_to_visit.push(curr_node_prob,curr_node+";"+c)
+                preds.append(pred)
+            else:
+                preds = self.estimator.predict(X)
         return {i: preds}
     
-    def predict(self, X, bop=False):
+    def predict(self, X):
         """ Return class predictions.
 
         Parameters
         ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
             Input samples.
-        bop : boolean, default=False
-            Returns Bayes-optimal solution when set to True. Returns solution by following the path of maximum probability in each node, otherwise.
 
         Returns
         -------
@@ -462,24 +447,22 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         try:
             # now proceed to predicting
             with parallel_backend("loky"):
-                if not bop:
-                    d_preds = Parallel(n_jobs=self.n_jobs)(delayed(self._predict_nbop)(i,X[ind]) for i,ind in enumerate(np.array_split(range(X.shape[0]), self.n_jobs)))
-                else:
-                    d_preds = Parallel(n_jobs=self.n_jobs)(delayed(self._predict_bop)(i,X[ind],scores) for i,ind in enumerate(np.array_split(range(X.shape[0]), self.n_jobs)))
+                d_preds = Parallel(n_jobs=self.n_jobs)(delayed(self._predict)(i,X[ind],scores) for i,ind in enumerate(np.array_split(range(X.shape[0]), self.n_jobs)))
             # collect predictions
             preds_dict = dict(ChainMap(*d_preds))
             for k in np.sort(list(preds_dict.keys())):
                 preds.extend(preds_dict[k])
-            # in case of no predefined hierarchy, backtransform to original labels
-            if self.label_encoder_ is not None:
-                preds = self.label_encoder_.inverse_transform([p.split(self.sep)[-1] for p in preds])
+            if self.hierarchy != "none":
+                # in case of no predefined hierarchy, backtransform to original labels
+                if self.label_encoder_ is not None:
+                    preds = self.label_encoder_.inverse_transform([p.split(self.sep)[-1] for p in preds])
         except NotFittedError as e:
             raise NotFittedError("This model is not fitted yet. Cal 'fit' \
                     with appropriate arguments before using this \
                     method.")
         stop_time = time.time()
         if self.verbose >= 1:
-            print(_message_with_time("LCPN", "predicting", stop_time-start_time))
+            print(_message_with_time("SVPClassifier", "predicting", stop_time-start_time))
         return preds
      
     def _predict_proba(self, estimator, X, scores=False):
@@ -531,40 +514,45 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                          probabilistic predictions nor scores.".format(self.estimator))
             else:
                 scores = True
-        try:
-            nodes_to_visit = [(self.tree[self.rlbl], np.ones((X.shape[0],1)))]
-            while len(nodes_to_visit) > 0:
-                curr_node, parent_prob = nodes_to_visit.pop()
-                # check if we have a node with single path
-                if curr_node["estimator"] is not None:
-                    # get probabilities 
-                    curr_node_probs = self._predict_proba(curr_node["estimator"], X, scores)
-                    # apply chain rule of probability
-                    curr_node_probs = curr_node_probs*parent_prob
-                    for i,c in enumerate(curr_node["children"]):
+        if self.hierachy != "none":
+            try:
+                nodes_to_visit = [(self.tree[self.rlbl], np.ones((X.shape[0],1)))]
+                while len(nodes_to_visit) > 0:
+                    curr_node, parent_prob = nodes_to_visit.pop()
+                    # check if we have a node with single path
+                    if curr_node["estimator"] is not None:
+                        # get probabilities 
+                        curr_node_probs = self._predict_proba(curr_node["estimator"], X, scores)
+                        # apply chain rule of probability
+                        curr_node_probs = curr_node_probs*parent_prob
+                        for i,c in enumerate(curr_node["children"]):
+                            # check if child is leaf node 
+                            prob_child = curr_node_probs[:,i].reshape(-1,1)
+                            if c not in self.tree:
+                                probs.append(prob_child)
+                            else:
+                                # add child to nodes_to_visit
+                                nodes_to_visit.append((self.tree[c], prob_child))
+                    else:
+                        c = curr_node["children"][0]
                         # check if child is leaf node 
-                        prob_child = curr_node_probs[:,i].reshape(-1,1)
                         if c not in self.tree:
-                            probs.append(prob_child)
+                            probs.append(parent_prob)
                         else:
                             # add child to nodes_to_visit
-                            nodes_to_visit.append((self.tree[c],prob_child))
-                else:
-                    c = curr_node["children"][0]
-                    # check if child is leaf node 
-                    if c not in self.tree:
-                        probs.append(parent_prob)
-                    else:
-                        # add child to nodes_to_visit
-                        nodes_to_visit.append((self.tree[c],parent_prob))
-        except NotFittedError as e:
-            raise NotFittedError("This model is not fitted yet. Cal 'fit' \
-                    with appropriate arguments before using this \
-                    method.") 
-        stop_time = time.time()
+                            nodes_to_visit.append((self.tree[c], parent_prob))
+            except NotFittedError as e:
+                raise NotFittedError("This model is not fitted yet. Cal 'fit' \
+                        with appropriate arguments before using this \
+                        method.") 
+            probs = np.hstack(probs)
+            stop_time = time.time()
+        else:
+            probs = self._predict_proba(self.estimator, X, scores)
         if self.verbose >= 1:
-            print(_message_with_time("LCPN", "predicting probabilities", stop_time-start_time))
-        return np.hstack(probs)
+            print(_message_with_time("SVPClassifier", "predicting probabilities", stop_time-start_time))
+
+        return probs
 
     def predict_set(self, X , params):
         return "Not implemented yet!"
