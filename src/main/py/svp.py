@@ -602,7 +602,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         """
         # check input and outputs
         if self.hierarchy == "none":
-            raise NotFittedError("Method score_nodes() is only supported for hierarchical classifiers!")
+            raise NotFittedError("Method `score_nodes` is only supported for hierarchical classifiers!")
         X, y  = check_X_y(X, y, multi_output=False)
         start_time = time.time()
         score_dict = {}
