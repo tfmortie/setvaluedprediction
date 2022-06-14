@@ -214,7 +214,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         Type of probabilistic model to consider in the set-valued predictor.
     k : tuple of int, default=None
         Min and max number of children a node can have in the random generated tree. Is only used when hierarchy='random'.
-    n_jobs : int, default=None
+    n_jobs : int, default=1
         The number of jobs to run in parallel. Currently this applies to fit, and predict.  
     random_state : RandomState or an int seed, default=None
         A random number generator instance to define the state of the
@@ -240,7 +240,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
     >>> clf.fit(X, y)
     >>> clf.score(X, y)
     """
-    def __init__(self, estimator, hierarchy="none", k=None, n_jobs=None, random_state=None, verbose=0):
+    def __init__(self, estimator, hierarchy="none", k=None, n_jobs=1, random_state=None, verbose=0):
         self.estimator = clone(estimator)
         self.hierarchy = hierarchy
         self.k = k
@@ -258,10 +258,10 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             if len(path) > 2:
                 # register add_node to the tree
                 self.tree[add_node] = {
-                     "lbl": add_node,
-                     "estimator": None,
-                     "children": [],
-                     "parent": current_node} 
+                    "lbl": add_node,
+                    "estimator": None,
+                    "children": [],
+                    "parent": current_node} 
             # add add_node to current_node's children (if not yet in list of children)
             if add_node not in self.tree[current_node]["children"]:
                 self.tree[current_node]["children"].append(add_node)
@@ -269,8 +269,8 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             if len(self.tree[current_node]["children"]) > 1 and self.tree[current_node]["estimator"] is None:
                 self.tree[current_node]["estimator"] = clone(self.estimator)
         else:
-            # check for duplicate node labels 
-            if self.tree[add_node]["parent"] != current_node:
+            # check for cycles
+            if self.tree[add_node]["parent"] != current_node and current_node != add_node:
                 warnings.warn("Duplicate node label {0} detected in hierarchy with parents {1}, {2}!".format(add_node, self.tree[add_node]["parent"], current_node), FitFailedWarning)
         # process next couple of nodes in path
         if len(path) > 2:
@@ -285,11 +285,12 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             sel_ind = []
             for i,y in enumerate(self.y_):
                 if node["lbl"] in y.split(";"):
-                     # need to include current label and sample (as long as it's "complete")
-                     y_split = y.split(";")
-                     if y_split.index(node["lbl"]) < len(y_split)-1:
-                         y_transform.append(y_split[y_split.index(node["lbl"])+1])
-                         sel_ind.append(i)
+                    # need to include current label and sample (as long as it's "complete")
+                    y_split = y.split(";")
+                    y_idx = len(y_split)-y_split[::-1].index(node["lbl"])-1
+                    if y_idx < len(y_split)-1:
+                        y_transform.append(y_split[y_idx+1])
+                        sel_ind.append(i)
             X_transform = self.X_[sel_ind,:]
             node["estimator"].fit(X_transform, y_transform)
             if self.verbose >= 2:
@@ -317,17 +318,15 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         # need to make sure that X and y have the correct shape
         X, y = check_X_y(X, y, multi_output=False) # multi-output not supported (yet)
         # check if n_jobs is integer
-        if not self.n_jobs is None:
-            if not isinstance(self.n_jobs, int):
-                raise TypeError("Parameter n_jobs must be of type int.")
+        if not isinstance(self.n_jobs, int):
+            raise TypeError("Parameter n_jobs must be of type int.")
         # store number of outputs and complete data seen during fit
         self.n_outputs_ = 1
         self.X_ = X
         self.y_ = y
         # check if flat or hierarchical model
+        start_time = time.time()
         if self.hierarchy != "none":
-            # init and fit the hierarchical model
-            start_time = time.time()
             # first init the tree 
             try:
                 if self.hierarchy == "random":
@@ -347,7 +346,12 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                     "children": [],
                     "parent": None}}
                 for lbl in self.y_:
-                    self._add_path(lbl.split(";"))
+                    path = lbl.split(";")
+                    if path[-1] == path[-2]:
+                        # cut single paths at bottom of hierarchy
+                        self._add_path(path[:-1])
+                    else:
+                        self._add_path(path)
                 # now proceed to fitting
                 with parallel_backend("loky"):
                     fitted_tree = Parallel(n_jobs=self.n_jobs)(delayed(self._fit_node)(self.tree[node]) for node in self.tree)
@@ -374,11 +378,11 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                 # construct dict with leaf node lbls -> path mappings
                 lbl_to_path = {yi.split(";")[-1]: yi for yi in self.y_}
                 self.classes_ = [lbl_to_path[cls] for cls in self.classes_]
-            stop_time = time.time()
-            if self.verbose >= 1:
-                print(_message_with_time("SVPClassifier", "fitting", stop_time-start_time))
         else:
             self.estimator.fit(X, y)
+        stop_time = time.time()
+        if self.verbose >= 1:
+            print(_message_with_time("SVPClassifier", "fitting", stop_time-start_time))
         return self
   
     def _predict(self, i, X, scores):
@@ -414,8 +418,8 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                             c = curr_node_v["children"][0]
                             nodes_to_visit.push(curr_node_prob,curr_node+";"+c)
                 preds.append(pred)
-            else:
-                preds = self.estimator.predict(X)
+        else:
+            preds = self.estimator.predict(X)
         return {i: preds}
     
     def predict(self, X):
@@ -455,7 +459,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             if self.hierarchy != "none":
                 # in case of no predefined hierarchy, backtransform to original labels
                 if self.label_encoder_ is not None:
-                    preds = self.label_encoder_.inverse_transform([p.split(self.sep)[-1] for p in preds])
+                    preds = self.label_encoder_.inverse_transform([p.split(";")[-1] for p in preds])
         except NotFittedError as e:
             raise NotFittedError("This model is not fitted yet. Cal 'fit' \
                     with appropriate arguments before using this \
@@ -618,9 +622,9 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                     y_transform = []
                     sel_ind = []
                     for i, yi in enumerate(y):
-                        if node["lbl"] in yi.split(self.sep):
+                        if node["lbl"] in yi.split(";"):
                             # need to include current label and sample (as long as it's "complete")
-                            y_split = yi.split(self.sep)
+                            y_split = yi.split(";")
                             if y_split.index(node["lbl"]) < len(y_split)-1:
                                 y_transform.append(y_split[y_split.index(node["lbl"])+1])
                                 sel_ind.append(i)
