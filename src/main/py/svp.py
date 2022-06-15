@@ -5,6 +5,7 @@ Author: Thomas Mortier
 Date: November 2021
 
 TODO:
+    - make SVPClassifier and SVPNet consistent wrt arguments, outputs and signature
     - improve checks for param in predict_set
     - argument checks
     - information in predict_set related to different settings
@@ -32,9 +33,7 @@ class SVPNet(torch.nn.Module):
     Parameters
     ----------
     phi : torch.nn.Module
-        Represents the neural network architecture which returns the hidden representations
-        for the probabilistic model. Must be of type torch.nn.Module with output 
-        (batch_size, hidden_size).
+        Represents the neural network architecture which returns the hidden representations for the probabilistic model. Must be of type torch.nn.Module with output (batch_size, hidden_size).
     hidden_size : int
         Size of the hidden representation which is passed to the probabilistic model.
     classes : list
@@ -50,24 +49,34 @@ class SVPNet(torch.nn.Module):
     Attributes
     ----------
     phi : torch.nn.Module
-        Represents the neural network architecture which learns the hidden representations
-        for the probabilistic model. Must be of type torch.nn.Module with output 
-        (batch_size, hidden_size).
+        Represents the neural network architecture which learns the hidden representations. for the probabilistic model. Must be of type torch.nn.Module with output (batch_size, hidden_size).
     hidden_size : int
         Size of the hidden representation which is passed to the probabilistic model.
-    classes_ : list
-        List containing classes seen during training time. 
     hierarchy : {'predefined', 'random', 'none'}, default='none'
         Type of probabilistic model to consider in the set-valued predictor.
     k : tuple of int, default=None
         Min and max number of children a node can have in the random generated tree. Is only used when hierarchy='random'. 
     random_state : RandomState or an int seed, default=None
-        A random number generator instance to define the state of the
-        random generator.
+        A random number generator instance to define the state of the random generator.
     transformer : LabelTransformer
         Label transformer needed for the SVP module. 
+    classes_ : list
+        List containing classes seen during training time. 
     SVP : SVP module
         SVP module.
+
+    Examples
+    --------
+    >>> from svp import SVPNet 
+    >>> import torch.nn as nn
+    >>> 
+    >>> net = SVPNet(nn.Linear(1000,1000),
+    >>>         hidden_size = 1000,
+    >>>         classes = y,
+    >>>         hierarchy="random",
+    >>>         k=(2,2),
+    >>>         random_state=0)
+    >>> clf(X)
     """
     def __init__(self, phi, hidden_size, classes, hierarchy="none", k=None, random_state=None):
         super(SVPNet, self).__init__()
@@ -97,15 +106,15 @@ class SVPNet(torch.nn.Module):
         
         Parameters
         ----------
-        X : input tensor of size (N, D) 
-            Represents a batch.
-        y : target tensor or list, default=None
-            Represents the target labels.
+        X : tensor, shape (n_samples, n_features) 
+            The input samples
+        y : {tensor, list}, shape (n_samples,), default=None
+            The class labels
 
         Returns
         -------
-        o : tensor of size (N,) or (N, K) 
-            Returns tensor of loss values if y is not None, and tensor with probabilities of size (N, K) otherwise. Probabilities are sorted wrt self.classes_.
+        o : tensor, shape (n_samples,) or (n_samples, n_classes)
+            Returns tensor of loss values if y is not None, and tensor with probabilities of size (n_samples, n_classes) otherwise. Probabilities are sorted wrt self.classes_.
         """
         # get embeddings
         x = self.phi(X)
@@ -128,12 +137,12 @@ class SVPNet(torch.nn.Module):
         
         Parameters
         ----------
-        X : input tensor of size (N, D) 
-            Represents a batch.
+        X : tensor, shape (n_samples, n_features)
+            Input samples.
 
         Returns
         -------
-        o : list of size (N,)
+        o : list, size (n_samples,)
             Returns output list of predicted classes.
         """
         # get embeddings
@@ -145,21 +154,33 @@ class SVPNet(torch.nn.Module):
         return o
  
     def predict_set(self, X, params):
-        """ Predict set function for the set-valued predictor 
+        """ Return set-valued predictions.
         
         Parameters
         ----------
-        X : input tensor of size (N, D) 
-            Represents a batch.
+        X : tensor, shape (n_samples, n_features)
+            Input samples.
         params : dict
-            Represents parameters for the set-valued prediction task.
-
-            TODO: information related to different settings
+            Represents parameters for the set-valued prediction task. Must contain following keys:
+                - c, int
+                    Representation complexity.
+                - svptype, str {"fb", "dg", "sizectrl", "errorctrl"}
+                    Type of set-valued predictor.
+                - beta, int
+                    Beta parameter in case of svptype="fb"
+                - delta, float
+                    Float parameter in case of svptype="dg"
+                - gamma, float
+                    Float parameter in case of svptype="dg"
+                - size, int
+                    Size parameter in case of svptype="sizectrl"
+                - error, float
+                    Error parameter in case of svptype="errorctrl"
 
         Returns
         -------
-        o : nested list of size (N,)
-            Returns output list of set-valued predictions.
+        o : list, size (n_samples,)
+            Nested list of set-valued predictions.
         """
         # get embeddings
         x = self.phi(X)
@@ -209,31 +230,53 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
     Parameters
     ----------
     estimator : scikit-learn base estimator
-        Represents the base estimator for the classification task in each node.
+        Represents the base estimator for the classification task in each node (in case of hierarchical model).
     hierarchy : {'predefined', 'random', 'none'}, default='none'
         Type of probabilistic model to consider in the set-valued predictor.
     k : tuple of int, default=None
         Min and max number of children a node can have in the random generated tree. Is only used when hierarchy='random'.
     n_jobs : int, default=1
-        The number of jobs to run in parallel. Currently this applies to fit, and predict.  
+        The number of jobs to run in parallel.
     random_state : RandomState or an int seed, default=None
-        A random number generator instance to define the state of the
-        random generator.
+        A random number generator instance to define the state of the random generator.
     verbose : int, default=0
         Controls the verbosity: the higher, the more messages
 
     Attributes
     ----------
-    TODO
+    estimator : scikit-learn base estimator
+        Represents the base estimator for the classification task in each node (in case of hierarchical model).
+    hierarchy : {'predefined', 'random', 'none'}, default='none'
+        Type of probabilistic model to consider in the set-valued predictor.
+    k : tuple of int, default=None
+        Min and max number of children a node can have in the random generated tree. Is only used when hierarchy='random'.
+    n_jobs : int, default=1
+        The number of jobs to run in parallel.
+    verbose : int, default=0
+        Controls the verbosity: the higher, the more messages.
+    random_state_ : RandomState or an int seed, default=None
+        A random number generator instance to define the state of the random generator.
+    X_ : {array-like, sparse matrix}, shape (n_samples, n_features)
+        Training input samples seen during fit.
+    y_ : array-like, shape (n_samples,)
+        The class labels seen during fit.
+    label_encoder_ : FLabelTransformer
+        Label transformer needed for the SVPClassifier module.
+    rlbl_ : str
+        Label of root node (in case of hierarchical model).
+    tree_ : dict
+        Represents the fitted tree structure in case of a hierarhical probabilistic model.
+    classes_ : list
+        List containing classes seen during fit.
 
     Examples
     --------
-    TODO: change
     >>> from svp import SVPClassifier 
     >>> from sklearn.linear_model import LogisticRegression
     >>> 
     >>> clf = SVPClassifier(LogisticRegression(random_state=0),
-    >>>         sep=";",
+    >>>         hierarchy="random",
+    >>>         k=(2,2),
     >>>         n_jobs=4,
     >>>         random_state=0,
     >>>         verbose=1)
@@ -247,29 +290,29 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         self.n_jobs = n_jobs
         self.random_state = random_state
         self.verbose = verbose
-        self.tree = {}
+        self.tree_ = {}
 
     def _add_path(self, path):
         current_node = path[0]
         add_node = path[1]
         # check if add_node is already registred
-        if add_node not in self.tree:
+        if add_node not in self.tree_:
             # register add_node to the tree
-            self.tree[add_node] = {
+            self.tree_[add_node] = {
                 "lbl": add_node,
                 "estimator": None,
                 "children": [],
                 "parent": current_node} 
             # add add_node to current_node's children (if not yet in list of children)
-            if add_node not in self.tree[current_node]["children"]:
-                self.tree[current_node]["children"].append(add_node)
+            if add_node not in self.tree_[current_node]["children"]:
+                self.tree_[current_node]["children"].append(add_node)
             # set estimator when num. of children for current_node is higher than 1 and if not yet set
-            if len(self.tree[current_node]["children"]) > 1 and self.tree[current_node]["estimator"] is None:
-                self.tree[current_node]["estimator"] = clone(self.estimator)
+            if len(self.tree_[current_node]["children"]) > 1 and self.tree_[current_node]["estimator"] is None:
+                self.tree_[current_node]["estimator"] = clone(self.estimator)
         else:
             # check for cycles
-            if self.tree[add_node]["parent"] != current_node and current_node != add_node:
-                warnings.warn("Duplicate node label {0} detected in hierarchy with parents {1}, {2}!".format(add_node, self.tree[add_node]["parent"], current_node), FitFailedWarning)
+            if self.tree_[add_node]["parent"] != current_node and current_node != add_node:
+                warnings.warn("Duplicate node label {0} detected in hierarchy with parents {1}, {2}!".format(add_node, self.tree_[add_node]["parent"], current_node), FitFailedWarning)
         # process next couple of nodes in path
         if len(path) > 2:
             path = path[1:]
@@ -298,13 +341,13 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         return {node["lbl"]: node}
         
     def fit(self, X, y):
-        """ Implementation of the fitting function for the SVPClassifier object.
+        """ Implementation of the fit function for the set-valued predictor.
 
         Parameters
         ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
             The training input samples.
-        y : array-like, shape (n_samples,) or (n_samples, n_outputs)
+        y : array-like, shape (n_samples,)
             The class labels
 
         Returns
@@ -318,8 +361,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         # check if n_jobs is integer
         if not isinstance(self.n_jobs, int):
             raise TypeError("Parameter n_jobs must be of type int.")
-        # store number of outputs and complete data seen during fit
-        self.n_outputs_ = 1
+        # store data seen during fit
         self.X_ = X
         self.y_ = y
         # check if flat or hierarchical model
@@ -336,10 +378,10 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                 else:
                     self.label_encoder_ = None
                 # store label of root node
-                self.rlbl = self.y_[0].split(";")[0]
+                self.rlbl_ = self.y_[0].split(";")[0]
                 # init tree
-                self.tree = {self.rlbl: {
-                    "lbl": self.rlbl,
+                self.tree_ = {self.rlbl_: {
+                    "lbl": self.rlbl_,
                     "estimator": None,
                     "children": [],
                     "parent": None}}
@@ -348,22 +390,22 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                     self._add_path(path)
                 # now proceed to fitting
                 with parallel_backend("loky"):
-                    fitted_tree = Parallel(n_jobs=self.n_jobs)(delayed(self._fit_node)(self.tree[node]) for node in self.tree)
-                self.tree = {k: v for d in fitted_tree for k, v in d.items()}
+                    fitted_tree = Parallel(n_jobs=self.n_jobs)(delayed(self._fit_node)(self.tree_[node]) for node in self.tree_)
+                self.tree_ = {k: v for d in fitted_tree for k, v in d.items()}
             except NotFittedError as e:
                 raise NotFittedError("Tree fitting failed! Make sure that the provided data is in the correct format.")
             # now store classes (leaf nodes) seen during fit
             cls = []
-            nodes_to_visit = [self.tree[self.rlbl]]
+            nodes_to_visit = [self.tree_[self.rlbl_]]
             while len(nodes_to_visit) > 0:
                 curr_node = nodes_to_visit.pop()
                 for c in curr_node["children"]:
                     # check if child is leaf node 
-                    if len(self.tree[c]["children"]) == 0:
+                    if len(self.tree_[c]["children"]) == 0:
                         cls.append(c)
                     else:
                         # add child to nodes_to_visit
-                        nodes_to_visit.append(self.tree[c])
+                        nodes_to_visit.append(self.tree_[c])
             self.classes_ = cls 
             # make sure that classes_ are in same format of original labels
             if self.label_encoder_ is not None:
@@ -386,18 +428,18 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             for x in X:
                 x = x.reshape(1,-1)
                 nodes_to_visit = PriorityQueue()
-                nodes_to_visit.push(1.,self.rlbl)
+                nodes_to_visit.push(1.,self.rlbl_)
                 pred = None
                 while not nodes_to_visit.is_empty():
                     curr_node_prob, curr_node = nodes_to_visit.pop()
                     curr_node_lbl = curr_node.split(";")[-1]
                     curr_node_prob = 1-curr_node_prob
                     # check if we are at a leaf node
-                    if len(self.tree[curr_node_lbl]["children"]) == 0:
+                    if len(self.tree_[curr_node_lbl]["children"]) == 0:
                         pred = curr_node
                         break
                     else:
-                        curr_node_v = self.tree[curr_node_lbl]
+                        curr_node_v = self.tree_[curr_node_lbl]
                         # check if we have a node with single path
                         if curr_node_v["estimator"] is not None:
                             # get probabilities
@@ -417,7 +459,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         return {i: preds}
     
     def predict(self, X):
-        """ Return class predictions.
+        """ Predict function for the set-valued predictor.
 
         Parameters
         ----------
@@ -426,13 +468,13 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
 
         Returns
         -------
-        preds : ndarray
-            Returns an array of predicted class labels.
+        o : list, size (n_samples,)
+            Returns output list of predicted classes.
         """
         # check input
         X = check_array(X)
         scores = False
-        preds = []
+        o = []
         start_time = time.time()
         # check whether the base estimator supports probabilities
         if not hasattr(self.estimator, 'predict_proba'):
@@ -449,11 +491,11 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             # collect predictions
             preds_dict = dict(ChainMap(*d_preds))
             for k in np.sort(list(preds_dict.keys())):
-                preds.extend(preds_dict[k])
+                o.extend(preds_dict[k])
             if self.hierarchy != "none":
                 # in case of no predefined hierarchy, backtransform to original labels
                 if self.label_encoder_ is not None:
-                    preds = self.label_encoder_.inverse_transform([p.split(";")[-1] for p in preds])
+                    o = self.label_encoder_.inverse_transform([p.split(";")[-1] for p in o])
         except NotFittedError as e:
             raise NotFittedError("This model is not fitted yet. Cal 'fit' \
                     with appropriate arguments before using this \
@@ -461,7 +503,8 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         stop_time = time.time()
         if self.verbose >= 1:
             print(_message_with_time("SVPClassifier", "predicting", stop_time-start_time))
-        return preds
+
+        return o
      
     def _predict_proba(self, estimator, X, scores=False):
         if not scores:
@@ -482,27 +525,22 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             return scores
     
     def predict_proba(self, X):
-        """ Return probability estimates.
-
-        Important: the returned estimates for all classes are ordered by the
-        label of classes.
+        """ Predict function for the set-valued predictor that returns probability estimates, where classes are ordered by self.classes_.
 
         Parameters
         ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
             Input samples.
-        avg : boolean, default=True
-            Return model average when true, and array of probability estimates otherwise.
 
         Returns
         -------
-        probs : ndarray
-            Returns the probability of the sample for each class in the model, where classes are ordered as they are in self.classes_.
+        o : array-like, shape (n_samples, n_classes)
+            Returns the probability of the sample for each class in the model, where classes are ordered by self.classes_.
         """
         # check input
         X = check_array(X)
         scores = False
-        probs = []
+        o = []
         start_time = time.time()
         # check whether the base estimator supports probabilities
         if not hasattr(self.estimator, 'predict_proba'):
@@ -514,7 +552,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                 scores = True
         if self.hierarchy != "none":
             try:
-                nodes_to_visit = [(self.tree[self.rlbl], np.ones((X.shape[0],1)))]
+                nodes_to_visit = [(self.tree_[self.rlbl_], np.ones((X.shape[0],1)))]
                 while len(nodes_to_visit) > 0:
                     curr_node, parent_prob = nodes_to_visit.pop()
                     # check if we have a node with single path
@@ -526,33 +564,106 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                         for i,c in enumerate(curr_node["children"]):
                             # check if child is leaf node 
                             prob_child = curr_node_probs[:,i].reshape(-1,1)
-                            if len(self.tree[c]["children"]) == 0:
-                                probs.append(prob_child)
+                            if len(self.tree_[c]["children"]) == 0:
+                                o.append(prob_child)
                             else:
                                 # add child to nodes_to_visit
-                                nodes_to_visit.append((self.tree[c], prob_child))
+                                nodes_to_visit.append((self.tree_[c], prob_child))
                     else:
                         c = curr_node["children"][0]
                         # check if child is leaf node 
-                        if len(self.tree[c]["children"]) == 0:
-                            probs.append(parent_prob)
+                        if len(self.tree_[c]["children"]) == 0:
+                            o.append(parent_prob)
                         else:
                             # add child to nodes_to_visit
-                            nodes_to_visit.append((self.tree[c], parent_prob))
+                            nodes_to_visit.append((self.tree_[c], parent_prob))
             except NotFittedError as e:
                 raise NotFittedError("This model is not fitted yet. Cal 'fit' \
                         with appropriate arguments before using this \
                         method.") 
-            probs = np.hstack(probs)
+            o = np.hstack(o)
             stop_time = time.time()
         else:
-            probs = self._predict_proba(self.estimator, X, scores)
+            o = self._predict_proba(self.estimator, X, scores)
         if self.verbose >= 1:
             print(_message_with_time("SVPClassifier", "predicting probabilities", stop_time-start_time))
 
-        return probs
+        return o
 
     def predict_set(self, X , params):
+        """ Return set-valued predictions.
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix}, shape (n_samples, n_features)
+            Input samples.
+        params : dict
+            Represents parameters for the set-valued prediction task. Must contain following keys:
+                - c, int
+                    Representation complexity.
+                - svptype, str {"fb", "dg", "sizectrl", "errorctrl"}
+                    Type of set-valued predictor.
+                - beta, int
+                    Beta parameter in case of svptype="fb"
+                - delta, float
+                    Float parameter in case of svptype="dg"
+                - gamma, float
+                    Float parameter in case of svptype="dg"
+                - size, int
+                    Size parameter in case of svptype="sizectrl"
+                - error, float
+                    Error parameter in case of svptype="errorctrl"
+
+        Returns
+        -------
+        o : list, size (n_samples,)
+            Nested list of set-valued predictions.
+        """
+        # process params and get set
+        try:
+            c = int(params["c"])
+        except ValueError:
+            raise ValueError("Invalid representation complexity {0}. Must be integer.".format(params["c"]))
+        if params["svptype"] == "fb":
+            try:
+                beta = int(params["beta"])
+            except ValueError:
+                raise ValueError("Invalid beta {0}. Must be positive integer.".format(params["beta"]))
+            o = self.__predict_set_fb(X, beta, c)
+        elif params["svptype"] == "dg":
+            try:
+                delta = float(params["delta"])
+                gamma = float(params["gamma"])
+            except ValueError:
+                raise ValueError("Invalid delta {0} or gamma {1}. Must be positive float.".format(params["delta"], params["gamma"]))
+            o = self.__predict_set_dg(X, delta, gamma, c)
+        elif params["svptype"] == "sizectrl":
+            try:
+                size = int(params["size"])
+            except ValueError:
+                raise ValueError("Invalid size {0}. Must be positive integer.".format(params["size"]))
+            o = self.__predict_set_size(X, size, c)
+        elif params["svptype"] == "errorctrl":
+            try:
+                error = float(params["error"])
+            except ValueError:
+                raise ValueError("Invalid error {0}. Must be a real number in [0,1].".format(params["error"]))
+            o = self.__predict_set_error(X, error, c)
+        else: 
+            raise ValueError("Invalid SVP type {0}! Valid options: {fb, dg, sizectrl, errorctrl}.".format(params["svptype"]))
+
+        return o
+
+    def __predict_set_fb(self, X, beta, c):
+        return "Not implemented yet!"
+
+    def __predict_set_dg(self, X, delta, gamma, c):
+        return "Not implemented yet!"
+
+    def __predict_set_size(self, X, size, c):
+        return "Not implemented yet!"
+
+    def __predict_set_error(self, X, error, c):
         return "Not implemented yet!"
 
     def score(self, X, y):
@@ -560,9 +671,9 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array-like, shape (n_samples, n_features)
             Test samples.
-        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
+        y : array-like, shape (n_samples,)
             True labels for X.
        
         Returns
@@ -590,9 +701,9 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array-like, shape (n_samples, n_features)
             Test samples.
-        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
+        y : array-like, shape (n_samples,)
             True labels for X.
        
         Returns
@@ -610,8 +721,8 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             # transform the flat labels, in case of no predefined hierarchy
             if self.label_encoder_ is not None:
                 y = self.label_encoder_.transform(y)
-            for node in self.tree:
-                node = self.tree[node]
+            for node in self.tree_:
+                node = self.tree_[node]
                 # check if node has estimator
                 if node["estimator"] is not None:
                     # transform data for node
