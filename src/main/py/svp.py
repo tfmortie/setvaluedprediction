@@ -3,12 +3,6 @@ Implementation of PyTorch and Scikit-learn set-valued predictors.
 
 Author: Thomas Mortier
 Date: November 2021
-
-TODO:
-    - make SVPClassifier and SVPNet consistent wrt arguments, outputs and signature
-    - improve checks for param in predict_set
-    - argument checks
-    - information in predict_set related to different settings
 """
 import torch
 import time
@@ -416,6 +410,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                 self.classes_ = [lbl_to_path[cls] for cls in self.classes_]
         else:
             self.estimator.fit(X, y)
+            self.classes_ = self.estimator.classes_
         stop_time = time.time()
         if self.verbose >= 1:
             print(_message_with_time("SVPClassifier", "fitting", stop_time-start_time))
@@ -619,51 +614,75 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         o : list, size (n_samples,)
             Nested list of set-valued predictions.
         """
-        # process params and get set
-        try:
-            c = int(params["c"])
-        except ValueError:
+        # check input
+        X = check_array(X)
+        scores = False
+        o = []
+        start_time = time.time()
+        # process params
+        if type(params["c"]) != int:
             raise ValueError("Invalid representation complexity {0}. Must be integer.".format(params["c"]))
+        # c must be K in case of no hierarchy
+        if self.hierarchy == "none" and params["c"] < len(self.classes_):
+            raise ValueError("Representation complexity {0} must be K in case of no hierarchy!".format(params["c"]))
         if params["svptype"] == "fb":
-            try:
-                beta = int(params["beta"])
-            except ValueError:
+            if params["beta"] != int:
                 raise ValueError("Invalid beta {0}. Must be positive integer.".format(params["beta"]))
-            o = self.__predict_set_fb(X, beta, c)
         elif params["svptype"] == "dg":
-            try:
-                delta = float(params["delta"])
-                gamma = float(params["gamma"])
-            except ValueError:
+            if params["gamma"] != float and params["delta"] != float:
                 raise ValueError("Invalid delta {0} or gamma {1}. Must be positive float.".format(params["delta"], params["gamma"]))
-            o = self.__predict_set_dg(X, delta, gamma, c)
         elif params["svptype"] == "sizectrl":
-            try:
-                size = int(params["size"])
-            except ValueError:
+            if params["size"] != int:
                 raise ValueError("Invalid size {0}. Must be positive integer.".format(params["size"]))
-            o = self.__predict_set_size(X, size, c)
         elif params["svptype"] == "errorctrl":
-            try:
-                error = float(params["error"])
-            except ValueError:
+            if params["error"] != float:
                 raise ValueError("Invalid error {0}. Must be a real number in [0,1].".format(params["error"]))
-            o = self.__predict_set_error(X, error, c)
         else: 
             raise ValueError("Invalid SVP type {0}! Valid options: {fb, dg, sizectrl, errorctrl}.".format(params["svptype"]))
+        # check whether the base estimator supports probabilities
+        if not hasattr(self.estimator, 'predict_proba'):
+            # check whether the base estimator supports class scores
+            if not hasattr(self.estimator, 'decision_function'):
+                raise NotFittedError("{0} does not support \
+                         probabilistic predictions nor scores.".format(self.estimator))
+            else:
+                scores = True
+        try:
+            # now proceed to predicting
+            with parallel_backend("loky"):
+                # obtain predictions
+                if self.hierarchy == "none":
+                    d_preds = Parallel(n_jobs=self.n_jobs)(delayed(self.__gsvbop)(i,X[ind],params,scores) for i,ind in enumerate(np.array_split(range(X.shape[0]), self.n_jobs)))
+                elif params["c"] == len(self.classes_):
+                    d_preds = Parallel(n_jobs=self.n_jobs)(delayed(self.__gsvbop_hf)(i,X[ind],params,scores) for i,ind in enumerate(np.array_split(range(X.shape[0]), self.n_jobs)))
+                else:
+                    d_preds = Parallel(n_jobs=self.n_jobs)(delayed(self.__gsvbop_hf_r)(i,X[ind],params,scores) for i,ind in enumerate(np.array_split(range(X.shape[0]), self.n_jobs)))
+            # TODO: finalize
+            # collect predictions
+            preds_dict = dict(ChainMap(*d_preds))
+            for k in np.sort(list(preds_dict.keys())):
+                o.extend(preds_dict[k])
+            if self.hierarchy != "none":
+                # in case of no predefined hierarchy, backtransform to original labels
+                if self.label_encoder_ is not None:
+                    o = self.label_encoder_.inverse_transform([p.split(";")[-1] for p in o])
+        except NotFittedError as e:
+            raise NotFittedError("This model is not fitted yet. Cal 'fit' \
+                    with appropriate arguments before using this \
+                    method.")
+        stop_time = time.time()
+        if self.verbose >= 1:
+            print(_message_with_time("SVPClassifier", "predicting set", stop_time-start_time))
 
         return o
 
-    def __predict_set_fb(self, X, beta, c):
+    def __gsvbop(self, i, X, params, scores):
         return "Not implemented yet!"
-
-    def __predict_set_dg(self, X, delta, gamma, c):
+    
+    def __gsvbop_hf(self, i, X, params, scores):
         return "Not implemented yet!"
-
-    def __predict_set_size(self, X, size, c):
-        return "Not implemented yet!"
-
-    def __predict_set_error(self, X, error, c):
+    
+    def __gsvbop_hf_r(self, i, X, params, scores):
         return "Not implemented yet!"
 
     def score(self, X, y):
