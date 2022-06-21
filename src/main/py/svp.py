@@ -7,6 +7,7 @@ Date: November 2021
 import torch
 import time
 import warnings
+import copy
 import numpy as np
 
 from svp_cpp import SVP
@@ -451,6 +452,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                 preds.append(pred)
         else:
             preds = self.estimator.predict(X)
+
         return {i: preds}
     
     def predict(self, X):
@@ -577,9 +579,9 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                         with appropriate arguments before using this \
                         method.") 
             o = np.hstack(o)
-            stop_time = time.time()
         else:
             o = self._predict_proba(self.estimator, X, scores)
+        stop_time = time.time()
         if self.verbose >= 1:
             print(_message_with_time("SVPClassifier", "predicting probabilities", stop_time-start_time))
 
@@ -677,13 +679,194 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         return o
 
     def __gsvbop(self, i, X, params, scores):
-        return "Not implemented yet!"
+        preds = []
+        # get probs
+        probs = self._predict_proba(X, scores)
+        # sort probs in decreasing order of probability mass
+        idx = np.argsort(X,axis=1)[:,::-1]
+        # run over all instances
+        for pi, p in enumerate(probs):
+            # get sorted probs
+            p_sorted = p[idx[pi,:]]
+            ystar, ystar_u = [], 0
+            for yi in range(len(p)):
+                yhat = idx[pi,:yi+1]
+                yhat_p = np.sum(p_sorted[:yi+1])
+                if params["svptype"] == "fb":
+                    yhat_u = yhat_p*((1.0+(params["beta"]**2))/((len(yhat))+(params["beta"]**2)))
+                    if yhat_u >= ystar_u:
+                        ystar = yhat
+                        ystar_u = yhat_u
+                    else:
+                        break
+                elif params["svptype"] == "dg":
+                    yhat_u = yhat_p*((params["delta"]/(len(yhat)))-(params["gamma"]/(len(yhat))**2))
+                    if yhat_u >= ystar_u:
+                        ystar = yhat
+                        ystar_u = yhat_u
+                    else:
+                        break
+                elif params["svptype"] == "sizectrl":
+                    if len(yhat) > params["size"]:
+                        break
+                    else:
+                        if yhat_p >= ystar_u:
+                            ystar = yhat
+                            ystar_u = yhat_p
+                else:
+                    if yhat_p >= 1-params["error"]:
+                        ystar = yhat
+                        break
+                        
+            preds.append(ystar)
+                 
+        return {i: preds}
     
     def __gsvbop_hf(self, i, X, params, scores):
-        return "Not implemented yet!"
+        preds = []
+        for x in X:
+            ystar, ystar_u = [], 0
+            yhat, yhat_p = [], 0
+            x = x.reshape(1,-1)
+            nodes_to_visit = PriorityQueue()
+            nodes_to_visit.push(1.,self.rlbl_)
+            while not nodes_to_visit.is_empty():
+                curr_node_prob, curr_node = nodes_to_visit.pop()
+                curr_node_lbl = curr_node.split(";")[-1]
+                curr_node_prob = 1-curr_node_prob
+                # check if we are at a leaf node
+                if len(self.tree_[curr_node_lbl]["children"]) == 0:
+                    # add label to current prediction
+                    yhat.append(curr_node)
+                    yhat_p += curr_node_prob
+                    # check if improvement
+                    if params["svptype"] == "fb":
+                        yhat_u = yhat_p*((1.0+(params["beta"]**2))/((len(yhat))+(params["beta"]**2)))
+                        if yhat_u >= ystar_u:
+                            ystar = yhat
+                            ystar_u = yhat_u
+                        else:
+                            break
+                    elif params["svptype"] == "dg":
+                        yhat_u = yhat_p*((params["delta"]/(len(yhat)))-(params["gamma"]/(len(yhat))**2))
+                        if yhat_u >= ystar_u:
+                            ystar = yhat
+                            ystar_u = yhat_u
+                        else:
+                            break
+                    elif params["svptype"] == "sizectrl":
+                        if len(yhat) > params["size"]:
+                            break
+                        else:
+                            if yhat_p >= ystar_u:
+                                ystar = yhat
+                                ystar_u = yhat_p
+                    else:
+                        if yhat_p >= 1-params["error"]:
+                            ystar = yhat
+                            break
+                else:
+                    curr_node_v = self.tree_[curr_node_lbl]
+                    # check if we have a node with single path
+                    if curr_node_v["estimator"] is not None:
+                        # get probabilities
+                        curr_node_ch_probs = self._predict_proba(curr_node_v["estimator"], x, scores)
+                        # apply chain rule of probability
+                        curr_node_ch_probs = curr_node_ch_probs*curr_node_prob
+                        # add children to queue
+                        for j,c in enumerate(curr_node_v["children"]):
+                            prob_child = curr_node_ch_probs[:,j][0]
+                            nodes_to_visit.push(prob_child, curr_node+";"+c)
+                    else:
+                        c = curr_node_v["children"][0]
+                        nodes_to_visit.push(curr_node_prob,curr_node+";"+c)
+            preds.append(ystar)
+
+        return {i: preds}
     
     def __gsvbop_hf_r(self, i, X, params, scores):
-        return "Not implemented yet!"
+        preds = []
+        for x in X:
+            ystar, ystar_u = [], 0
+            yhat, yhat_p = [], 0
+            x = x.reshape(1,-1)
+            q = PriorityQueue()
+            q.push(1.,self.rlbl_)
+            pred, _ = self.__gsvbop_hf_r_(x, params, params["c"], ystar, ystar_u, yhat, yhat_p, q, scores)
+            preds.append(pred)
+        
+        return {i: preds}
+    
+    def __gsvbop_hf_r_(self, x, params, c, ystar, ystar_u, yhat, yhat_p, q, scores):
+        while not q.is_empty():
+            ycur = yhat
+            ycur_p = yhat_p
+            curr_node_prob, curr_node = q.pop()
+            curr_node_lbl = curr_node.split(";")[-1]
+            curr_node_prob = 1-curr_node_prob
+            ycur.extend(curr_node)
+            ycur_p += curr_node_prob
+            # check if improvement
+            if params["svptype"] == "fb":
+                ycur_u = ycur_p*((1.0+(params["beta"]**2))/(len(ycur)+(params["beta"]**2)))
+                if ycur_u >= ystar_u:
+                    ystar = ycur
+                    ystar_u = ycur_u
+            elif params["svptype"] == "dg":
+                ycur_u = ycur_p*((params["delta"]/len(ycur))-(params["gamma"]/(len(ycur)**2)))
+                if ycur_u >= ystar_u:
+                    ystar = ycur
+                    ystar_u = ycur_u
+            elif params["svptype"] == "sizectrl":
+                if len(ycur) <= params["size"]:
+                    ycur_u = ycur_p
+                    if ycur_u >= ystar_u:
+                        ystar = ycur
+                        ystar_u = ycur_u
+            else: 
+                if ycur_p >= 1.0-params["error"]:
+                    ycur_u = 1.0/len(ycur)
+                    if ycur_u >= ystar_u:
+                        ystar = ycur;
+                        ystar_u = ycur_u
+            if params["svptype"] == "fb" or params["svptype"] == "dg":
+                if c > 1:
+                    # copy priority queue and continue recursion
+                    ystar, ystar_u = self.__gsvbop_hf_r_(x, params, c-1, ystar, ystar_u, ycur, ycur_p, copy.deepcopy(q))
+            elif params["svptype"] == "sizectrl": 
+                if len(ycur) <= params["size"]:
+                    if c > 1:
+                        # copy priority queue and continue recursion
+                        ystar, ystar_u = self.__gsvbop_hf_r_(x, params, c-1, ystar, ystar_u, ycur, ycur_p, copy.deepcopy(q))
+                    else:
+                        break
+            else:
+                if ycur_p <= 1-params["error"]:
+                    if c > 1:
+                        # copy priority queue and continue recursion
+                        ystar, ystar_u = self.__gsvbop_hf_r_(x, params, c-1, ystar, ystar_u, ycur, ycur_p, copy.deepcopy(q))
+                    else:
+                        break
+            # check if we are at a leaf node
+            if len(self.tree_[curr_node_lbl]["children"]) > 0:
+                curr_node_v = self.tree_[curr_node_lbl]
+                # check if we have a node with single path
+                if curr_node_v["estimator"] is not None:
+                    # get probabilities
+                    curr_node_ch_probs = self._predict_proba(curr_node_v["estimator"], x, scores)
+                    # apply chain rule of probability
+                    curr_node_ch_probs = curr_node_ch_probs*curr_node_prob
+                    # add children to queue
+                    for j,c in enumerate(curr_node_v["children"]):
+                        prob_child = curr_node_ch_probs[:,j][0]
+                        q.push(prob_child, curr_node+";"+c)
+                else:
+                    c = curr_node_v["children"][0]
+                    q.push(curr_node_prob,curr_node+";"+c)
+            else:
+                break
+    
+        return ystar, ystar_u
 
     def score(self, X, y):
         """ Return mean accuracy score.
@@ -712,7 +895,8 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         stop_time = time.time()
         if self.verbose >= 1:
             print(_message_with_time("SVPClassifier", "calculating score", stop_time-start_time))
-        score = accuracy_score(y, preds) 
+        score = accuracy_score(y, preds)
+
         return score
 
     def score_nodes(self, X, y):
@@ -732,7 +916,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         """
         # check input and outputs
         if self.hierarchy == "none":
-            raise NotFittedError("Method `score_nodes` is only supported for hierarchical classifiers!")
+            raise NotFittedError("Method 'score_nodes' is only supported for hierarchical classifiers!")
         X, y  = check_X_y(X, y, multi_output=False)
         start_time = time.time()
         score_dict = {}
@@ -767,4 +951,5 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         stop_time = time.time()
         if self.verbose >= 1:
             print(_message_with_time("SVPClassifier", "calculating node scores", stop_time-start_time))
+
         return score_dict
