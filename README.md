@@ -1,6 +1,6 @@
 # Uncertainty-aware classification with set-valued predictions
 
-Module for utility-based set-valued prediction in flat and hierarchical classification. 
+Package for utility-based set-valued prediction in flat and hierarchical classification. 
 
 ## Description
 
