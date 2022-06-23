@@ -1,4 +1,4 @@
-# Uncertainty-aware classification by means of set-valued predictions
+# Uncertainty-aware classification with set-valued predictions
 
 Module for utility-based set-valued prediction in flat and hierarchical classification. 
 
@@ -6,7 +6,7 @@ Module for utility-based set-valued prediction in flat and hierarchical classifi
 
 This package provides different set-valued predictors for flat and hierarchical classification with support for Scikit-learn and PyTorch.
 
-**TODO**: implementation for multi-label classification.
+**TODO**: support for multi-label classification.
 
 ## Usage
 
