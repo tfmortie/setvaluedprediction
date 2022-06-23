@@ -1,7 +1,5 @@
 """
-Implementation of PyTorch and Scikit-learn set-valued predictors.
-
-TODO decide on type of self.classes_ for SVPNet and SVPClassifier -> list or ndarray
+Implementation of PyTorch and Scikit-learn set-valued predictors for flat and hierarchical multi-class classification.
 
 Author: Thomas Mortier
 Date: November 2021
