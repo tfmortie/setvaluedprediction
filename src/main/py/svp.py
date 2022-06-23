@@ -1,6 +1,8 @@
 """
 Implementation of PyTorch and Scikit-learn set-valued predictors.
 
+TODO decide on type of self.classes_ for SVPNet and SVPClassifier -> list or ndarray
+
 Author: Thomas Mortier
 Date: November 2021
 """
@@ -54,8 +56,8 @@ class SVPNet(torch.nn.Module):
         A random number generator instance to define the state of the random generator.
     transformer : LabelTransformer
         Label transformer needed for the SVP module. 
-    classes_ : list
-        List containing classes seen during training time. 
+    classes_ : array-like, shape (n_classes,)
+        Array containing classes seen during fit.
     SVP : SVP module
         SVP module.
 
@@ -86,9 +88,9 @@ class SVPNet(torch.nn.Module):
         self.transformer.fit(classes)
         # register classes 
         if self.hierarchy != "random":
-            self.classes_ = self.transformer.hlt.classes_
+            self.classes_ = np.array(self.transformer.hlt.classes_)
         else:
-            self.classes_ = self.transformer.flt.inverse_transform(self.transformer.hlt.classes_)
+            self.classes_ = np.array(self.transformer.flt.inverse_transform(self.transformer.hlt.classes_))
         if self.hierarchy == "none":
             self.SVP = SVP(self.hidden_size, len(self.classes_), [])
         else:
@@ -652,7 +654,6 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                     d_preds = Parallel(n_jobs=self.n_jobs)(delayed(self.__gsvbop_hf)(i,X[ind],params,scores) for i,ind in enumerate(np.array_split(range(X.shape[0]), self.n_jobs)))
                 else:
                     d_preds = Parallel(n_jobs=self.n_jobs)(delayed(self.__gsvbop_hf_r)(i,X[ind],params,scores) for i,ind in enumerate(np.array_split(range(X.shape[0]), self.n_jobs)))
-            # TODO: finalize
             # collect predictions
             preds_dict = dict(ChainMap(*d_preds))
             for k in np.sort(list(preds_dict.keys())):
@@ -660,7 +661,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             if self.hierarchy != "none":
                 # in case of no predefined hierarchy, backtransform to original labels
                 if self.flabel_encoder_ is not None:
-                    o = self.flabel_encoder_.inverse_transform([p.split(";")[-1] for p in o])
+                    o = [self.flabel_encoder_.inverse_transform(p) for p in o]
         except NotFittedError as e:
             raise NotFittedError("This model is not fitted yet. Cal 'fit' \
                     with appropriate arguments before using this \
@@ -674,9 +675,9 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
     def __gsvbop(self, i, X, params, scores):
         preds = []
         # get probs
-        probs = self._predict_proba(X, scores)
+        probs = self._predict_proba(self.estimator, X, scores)
         # sort probs in decreasing order of probability mass
-        idx = np.argsort(X,axis=1)[:,::-1]
+        idx = np.argsort(probs, axis=1)[:,::-1]
         # run over all instances
         for pi, p in enumerate(probs):
             # get sorted probs
@@ -711,7 +712,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                         ystar = yhat
                         break
                         
-            preds.append(ystar)
+            preds.append(list(self.classes_[ystar]))
                  
         return {i: preds}
     
@@ -725,12 +726,11 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             nodes_to_visit.push(1.,self.rlbl_)
             while not nodes_to_visit.is_empty():
                 curr_node_prob, curr_node = nodes_to_visit.pop()
-                curr_node_lbl = curr_node.split(";")[-1]
                 curr_node_prob = 1-curr_node_prob
                 # check if we are at a leaf node
-                if len(self.tree_[curr_node_lbl]["children"]) == 0:
+                if len(self.tree_[curr_node]["children"]) == 0:
                     # add label to current prediction
-                    yhat.append(curr_node)
+                    yhat.extend(self.hlabel_encoder_.transform(np.array([curr_node]))[0])
                     yhat_p += curr_node_prob
                     # check if improvement
                     if params["svptype"] == "fb":
@@ -748,7 +748,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                         else:
                             break
                     elif params["svptype"] == "sizectrl":
-                        if len(yhat) > params["size"]:
+                        if len(yhat) >= params["size"]:
                             break
                         else:
                             if yhat_p >= ystar_u:
@@ -759,7 +759,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                             ystar = yhat
                             break
                 else:
-                    curr_node_v = self.tree_[curr_node_lbl]
+                    curr_node_v = self.tree_[curr_node]
                     # check if we have a node with single path
                     if curr_node_v["estimator"] is not None:
                         # get probabilities
@@ -769,11 +769,14 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                         # add children to queue
                         for j,c in enumerate(curr_node_v["children"]):
                             prob_child = curr_node_ch_probs[:,j][0]
-                            nodes_to_visit.push(prob_child, curr_node+";"+c)
+                            nodes_to_visit.push(prob_child, c)
                     else:
-                        c = curr_node_v["children"][0]
-                        nodes_to_visit.push(curr_node_prob,curr_node+";"+c)
-            preds.append(ystar)
+                        nodes_to_visit.push(curr_node_prob,curr_node_v["children"])
+            pr = self.hlabel_encoder_.inverse_transform([[ys] for ys in ystar])
+            # happens when ystar is empty
+            if type(pr) == np.ndarray:
+                pr = []
+            preds.append(pr)
 
         return {i: preds}
     
