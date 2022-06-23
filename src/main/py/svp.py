@@ -11,8 +11,7 @@ import copy
 import numpy as np
 
 from svp_cpp import SVP
-from .utils import LabelTransformer
-from .utils import FLabelTransformer, PriorityQueue
+from .utils import FLabelTransformer, HLabelTransformer, PriorityQueue
 from sklearn.base import BaseEstimator, ClassifierMixin, clone
 from sklearn.utils import _message_with_time
 from sklearn.utils.validation import check_X_y, check_array, check_random_state
@@ -64,7 +63,6 @@ class SVPNet(torch.nn.Module):
     --------
     >>> from svp import SVPNet 
     >>> import torch.nn as nn
-    >>> 
     >>> net = SVPNet(nn.Linear(1000,1000),
     >>>         hidden_size = 1000,
     >>>         classes = y,
@@ -255,20 +253,21 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         Training input samples seen during fit.
     y_ : array-like, shape (n_samples,)
         The class labels seen during fit.
-    label_encoder_ : FLabelTransformer
-        Label transformer needed for the SVPClassifier module.
+    flabel_encoder_ : FLabelTransformer
+        Label transformer needed for the SVPClassifier module in case of hierarchy='random'. Transforms labels to labels in some randomly generated hierarchy.
+    hlabel_encoder_ : HLabelTransformer
+        Label transformer needed for the SVPClassifier module. Used to retrieve information about the size of (internal) nodes of the hierarchy.
     rlbl_ : str
         Label of root node (in case of hierarchical model).
     tree_ : dict
         Represents the fitted tree structure in case of a hierarhical probabilistic model.
-    classes_ : list
-        List containing classes seen during fit.
+    classes_ : array-like, shape (n_classes,)
+        Array containing classes seen during fit.
 
     Examples
     --------
     >>> from svp import SVPClassifier 
     >>> from sklearn.linear_model import LogisticRegression
-    >>> 
     >>> clf = SVPClassifier(LogisticRegression(random_state=0),
     >>>         hierarchy="random",
     >>>         k=(2,2),
@@ -289,7 +288,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
 
     def _add_path(self, path):
         current_node = path[0]
-        add_node = path[1]
+        add_node = ";".join(path[:2])
         # check if add_node is already registred
         if add_node not in self.tree_:
             # register add_node to the tree
@@ -310,8 +309,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                 warnings.warn("Duplicate node label {0} detected in hierarchy with parents {1}, {2}!".format(add_node, self.tree_[add_node]["parent"], current_node), FitFailedWarning)
         # process next couple of nodes in path
         if len(path) > 2:
-            path = path[1:]
-            self._add_path(path)
+            self._add_path([add_node]+path[2:])
 
     def _fit_node(self, node):
         # check if node has estimator
@@ -320,12 +318,10 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             y_transform = []
             sel_ind = []
             for i,y in enumerate(self.y_):
-                if node["lbl"] in y.split(";"):
-                    # need to include current label and sample (as long as it's "complete")
-                    y_split = y.split(";")
-                    y_idx = len(y_split)-y_split[::-1].index(node["lbl"])-1
-                    if y_idx < len(y_split)-1:
-                        y_transform.append(y_split[y_idx+1])
+                if node["lbl"]+";" in y:
+                    y_tr = y.split(node["lbl"]+";")[1].split(";")
+                    if len(y_tr[0]) != 0:
+                        y_transform.append(node["lbl"]+";"+y_tr[0])
                         sel_ind.append(i)
             X_transform = self.X_[sel_ind,:]
             node["estimator"].fit(X_transform, y_transform)
@@ -366,12 +362,14 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             try:
                 if self.hierarchy == "random":
                     if self.k is None:
-                        self.label_encoder_ = FLabelTransformer(sep=";", k=(2,2), random_state=self.random_state_)
+                        self.flabel_encoder_ = FLabelTransformer(sep=";", k=(2,2), random_state=self.random_state_)
                     else:
-                        self.label_encoder_ = FLabelTransformer(sep=";", k=self.k, random_state=self.random_state_)
-                    self.y_ = self.label_encoder_.fit_transform(self.y_) 
+                        self.flabel_encoder_ = FLabelTransformer(sep=";", k=self.k, random_state=self.random_state_)
+                    self.y_ = self.flabel_encoder_.fit_transform(self.y_) 
                 else:
-                    self.label_encoder_ = None
+                    self.flabel_encoder_ = None
+                self.hlabel_encoder_ = HLabelTransformer(sep=";")
+                self.hlabel_encoder_.fit(self.y_)
                 # store label of root node
                 self.rlbl_ = self.y_[0].split(";")[0]
                 # init tree
@@ -401,14 +399,11 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                     else:
                         # add child to nodes_to_visit
                         nodes_to_visit.append(self.tree_[c])
-            self.classes_ = cls 
+            self.classes_ = cls
             # make sure that classes_ are in same format of original labels
-            if self.label_encoder_ is not None:
-                self.classes_ = self.label_encoder_.inverse_transform(self.classes_)
-            else:
-                # construct dict with leaf node lbls -> path mappings
-                lbl_to_path = {yi.split(";")[-1]: yi for yi in self.y_}
-                self.classes_ = [lbl_to_path[cls] for cls in self.classes_]
+            if self.flabel_encoder_ is not None:
+                self.classes_ = self.flabel_encoder_.inverse_transform(self.classes_)
+            self.classes_ = np.array(self.classes_)
         else:
             self.estimator.fit(X, y)
             self.classes_ = self.estimator.classes_
@@ -428,14 +423,13 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                 pred = None
                 while not nodes_to_visit.is_empty():
                     curr_node_prob, curr_node = nodes_to_visit.pop()
-                    curr_node_lbl = curr_node.split(";")[-1]
                     curr_node_prob = 1-curr_node_prob
                     # check if we are at a leaf node
-                    if len(self.tree_[curr_node_lbl]["children"]) == 0:
+                    if len(self.tree_[curr_node]["children"]) == 0:
                         pred = curr_node
                         break
                     else:
-                        curr_node_v = self.tree_[curr_node_lbl]
+                        curr_node_v = self.tree_[curr_node]
                         # check if we have a node with single path
                         if curr_node_v["estimator"] is not None:
                             # get probabilities
@@ -445,10 +439,9 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                             # add children to queue
                             for j,c in enumerate(curr_node_v["children"]):
                                 prob_child = curr_node_ch_probs[:,j][0]
-                                nodes_to_visit.push(prob_child, curr_node+";"+c)
+                                nodes_to_visit.push(prob_child, c)
                         else:
-                            c = curr_node_v["children"][0]
-                            nodes_to_visit.push(curr_node_prob,curr_node+";"+c)
+                            nodes_to_visit.push(curr_node_prob,curr_node_v["children"][0])
                 preds.append(pred)
         else:
             preds = self.estimator.predict(X)
@@ -491,8 +484,8 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                 o.extend(preds_dict[k])
             if self.hierarchy != "none":
                 # in case of no predefined hierarchy, backtransform to original labels
-                if self.label_encoder_ is not None:
-                    o = self.label_encoder_.inverse_transform([p.split(";")[-1] for p in o])
+                if self.flabel_encoder_ is not None:
+                    o = self.flabel_encoder_.inverse_transform([p.split(";")[-1] for p in o])
         except NotFittedError as e:
             raise NotFittedError("This model is not fitted yet. Cal 'fit' \
                     with appropriate arguments before using this \
@@ -628,16 +621,16 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         if self.hierarchy == "none" and params["c"] < len(self.classes_):
             raise ValueError("Representation complexity {0} must be K in case of no hierarchy!".format(params["c"]))
         if params["svptype"] == "fb":
-            if params["beta"] != int:
+            if type(params["beta"]) != int:
                 raise ValueError("Invalid beta {0}. Must be positive integer.".format(params["beta"]))
         elif params["svptype"] == "dg":
-            if params["gamma"] != float and params["delta"] != float:
+            if type(params["gamma"]) != float and type(params["delta"]) != float:
                 raise ValueError("Invalid delta {0} or gamma {1}. Must be positive float.".format(params["delta"], params["gamma"]))
         elif params["svptype"] == "sizectrl":
-            if params["size"] != int:
+            if type(params["size"]) != int:
                 raise ValueError("Invalid size {0}. Must be positive integer.".format(params["size"]))
         elif params["svptype"] == "errorctrl":
-            if params["error"] != float:
+            if type(params["error"]) != float:
                 raise ValueError("Invalid error {0}. Must be a real number in [0,1].".format(params["error"]))
         else: 
             raise ValueError("Invalid SVP type {0}! Valid options: {fb, dg, sizectrl, errorctrl}.".format(params["svptype"]))
@@ -666,8 +659,8 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                 o.extend(preds_dict[k])
             if self.hierarchy != "none":
                 # in case of no predefined hierarchy, backtransform to original labels
-                if self.label_encoder_ is not None:
-                    o = self.label_encoder_.inverse_transform([p.split(";")[-1] for p in o])
+                if self.flabel_encoder_ is not None:
+                    o = self.flabel_encoder_.inverse_transform([p.split(";")[-1] for p in o])
         except NotFittedError as e:
             raise NotFittedError("This model is not fitted yet. Cal 'fit' \
                     with appropriate arguments before using this \
@@ -801,9 +794,11 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         while not q.is_empty():
             ycur = yhat
             ycur_p = yhat_p
-            curr_node_prob, curr_node = q.pop()
-            curr_node_lbl = curr_node.split(";")[-1]
-            curr_node_prob = 1-curr_node_prob
+            c_node_prob, c_node = q.pop()
+            curr_node_lbl = c_node.split(";")[-1]
+            # transform curr_node
+            curr_node = self.hlabel_encoder_.hlbl_to_yhat_[c_node]
+            curr_node_prob = 1-c_node_prob
             ycur.extend(curr_node)
             ycur_p += curr_node_prob
             # check if improvement
@@ -857,12 +852,12 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                     # apply chain rule of probability
                     curr_node_ch_probs = curr_node_ch_probs*curr_node_prob
                     # add children to queue
-                    for j,c in enumerate(curr_node_v["children"]):
+                    for j, ch in enumerate(curr_node_v["children"]):
                         prob_child = curr_node_ch_probs[:,j][0]
-                        q.push(prob_child, curr_node+";"+c)
+                        q.push(prob_child, c_node+";"+ch)
                 else:
-                    c = curr_node_v["children"][0]
-                    q.push(curr_node_prob,curr_node+";"+c)
+                    ch = curr_node_v["children"][0]
+                    q.push(curr_node_prob, c_node+";"+ch)
             else:
                 break
     
@@ -922,8 +917,8 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         score_dict = {}
         try: 
             # transform the flat labels, in case of no predefined hierarchy
-            if self.label_encoder_ is not None:
-                y = self.label_encoder_.transform(y)
+            if self.flabel_encoder_ is not None:
+                y = self.flabel_encoder_.transform(y)
             for node in self.tree_:
                 node = self.tree_[node]
                 # check if node has estimator
@@ -931,12 +926,11 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                     # transform data for node
                     y_transform = []
                     sel_ind = []
-                    for i, yi in enumerate(y):
-                        if node["lbl"] in yi.split(";"):
-                            # need to include current label and sample (as long as it's "complete")
-                            y_split = yi.split(";")
-                            if y_split.index(node["lbl"]) < len(y_split)-1:
-                                y_transform.append(y_split[y_split.index(node["lbl"])+1])
+                    for i,yi in enumerate(y):
+                        if node["lbl"]+";" in yi:
+                            y_tr = yi.split(node["lbl"]+";")[1].split(";")
+                            if len(y_tr[0]) != 0:
+                                y_transform.append(node["lbl"]+";"+y_tr[0])
                                 sel_ind.append(i)
                     X_transform = X[sel_ind,:]
                     if len(sel_ind) != 0:
