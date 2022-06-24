@@ -24,7 +24,7 @@ setup(name='setvaluedprediction',
       packages=['svp'],
       install_requires=[
         'joblib == 1.1.0',
-        'numpy == 1.21.5',
+        'numpy == 1.22.0',
         'pandas == 1.2.4',
         'scikit-learn == 1.1.1',
         'setuptools == 61.2.0',
