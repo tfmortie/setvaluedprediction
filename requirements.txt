@@ -3,4 +3,4 @@ numpy
 pandas
 scikit-learn
 setuptools
-torch
+torch==1.11.0
