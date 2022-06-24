@@ -138,6 +138,7 @@ dmypy.json
 
 # Log files and output data
 *.txt
+!requirements.txt
 *.csv
 *.npy
 
