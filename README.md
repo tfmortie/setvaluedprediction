@@ -1,6 +1,6 @@
 # Uncertainty-aware classification with set-valued predictions ![build](https://app.travis-ci.com/tfmortie/setvaluedprediction.svg?branch=main) ![pypi version](https://badge.fury.io/py/setvaluedprediction.svg) ![license](https://img.shields.io/github/license/tfmortie/setvaluedprediction)
 
-Package for utility-based set-valued prediction in flat and hierarchical classification. 
+Package for set-valued prediction in flat and hierarchical classification. 
 
 ## Description
 
