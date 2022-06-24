@@ -28,7 +28,7 @@ setup(name='setvaluedprediction',
         'pandas == 1.2.4',
         'scikit-learn == 1.1.1',
         'setuptools == 61.2.0',
-        'torch == 1.10.0+cu102',
+        'torch == 1.10.0',
       ],
       ext_modules = ext_modules,
       cmdclass={'build_ext': BuildExtension}
