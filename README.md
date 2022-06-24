@@ -82,12 +82,12 @@ Hence, `SVPClassifier` boils down to a standard Scikit-learn estimator, albeit w
 params_flat = {
     "c": 10, # our representation complexity
     "svptype": "errorctrl", # minimize set size, while controlling the error rate
-    "error": 0.01 # upper-bound the error rate by 1%
+    "error": 0.01 # upper bound the error rate by 1%
 }
 params_hier_r = {
     "c": 1, # our representation complexity -> in this case only internal nodes are allowed
     "svptype": "errorctrl", # minimize set size, while controlling the error rate
-    "error": 0.01 # upper-bound the error rate by 1%
+    "error": 0.01 # upper bound the error rate by 1%
 }
 
 # obtain set-valued predictions
@@ -103,8 +103,6 @@ Creating a set-valued predictor in PyTorch is very similar to `SVPClassifier`:
 
 ```python
 import torch
-import numpy as np
-np.seterr(divide='ignore', invalid='ignore') # ignore divide by zero error's (often happens due to unstable SGDClassifier training)
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 from sklearn.model_selection import train_test_split
@@ -122,7 +120,7 @@ dataloader = DataLoader(dataset) # create your dataloader
 
 # create feature extractor for SGDNet and construct the set-valued predictors
 phi = nn.Identity()
-flat = SVPNet(phi=phi, hidden_size=X.shape[1], y, hierarchy="none")
+flat = SVPNet(phi=phi, hidden_size=X.shape[1], classes=y, hierarchy="none")
 hier_r = SVPNet(phi=phi, hidden_size=X.shape[1], classes=y, hierarchy="random")
 
 # start fitting models
@@ -132,7 +130,7 @@ if torch.cuda.is_available():
 optim_f = torch.optim.SGD(flat.parameters(), lr=0.01)
 optim_hr = torch.optim.SGD(hier_r.parameters(), lr=0.01)
 for _ in range(50):
-    for _, data in enumerate(dataloader,1):
+    for _, data in enumerate(dataloader, 1):
         inputs, labels = data
         if torch.cuda.is_available():
             inputs = inputs.cuda()
@@ -147,10 +145,10 @@ if torch.cuda.is_available():
     tensor_x_te = tensor_x_te.cuda()
 flat.eval()
 hier_r.eval()
-preds_f = flat.predict(tensor_x_test)
-preds_hr = hier_r.predict(tensor_x_test)
+preds_f = flat.predict(tensor_x_te)
+preds_hr = hier_r.predict(tensor_x_te)
 
-# obtain set-valued predictions with error-rate control and maximal representation complexity
+# obtain set-valued predictions with error rate control and maximal representation complexity
 params = {
     "c": 10,
     "svptype": "sizectrl",
@@ -160,16 +158,16 @@ svp_preds_f = flat.predict_set(tensor_x_te, params)
 svp_preds_hr = hier_r.predict_set(tensor_x_te, params)
 ```
 
-### Set-valued prediction with predefined hierarchies
+### Hierarchical models with predefined hierarchies
 
-In case you want to work with predefined hierarchies, make sure that the labels are encoded in the following way:
+In case you want to work with predefined hierarchies, simply set argument `hierarchy="predefined"` and make sure that provided labels are encoded in the following way:
 
 ```
 # example of two hierarchical labels from a predefined hierarchy
 y = ["root;Family1;Genus1;Species1", "root;Family1;Genus1;Species2"]
 ```
 
-Moreover, labels are encoded as strings and correspond to paths in the predefined hierarchy with nodes separated by `;`.
+Moreover, labels must be encoded as strings and should correspond to paths in the predefined hierarchy with nodes separated by `;`.
 
 ## Experiments paper(s)
 
@@ -184,9 +182,9 @@ If you use `setvaluedprediction` in your work, please use the following citation
     title = {Set-valued prediction in hierarchical classification with constrained representation complexity},
     author = {Mortier, Thomas and H\"ullermeier, Eyke and Dembczy\'nski, Krzysztof and Waegeman, Willem},
     booktitle = {Proceedings of the Thirty-Eight Conference on Uncertainty in Artificial Intelligence},
-  year = {2022},
-  series = {Proceedings of Machine Learning Research},
-  publisher = {PMLR},
+    year = {2022},
+    series = {Proceedings of Machine Learning Research},
+    publisher = {PMLR}
 }
 ```
 
