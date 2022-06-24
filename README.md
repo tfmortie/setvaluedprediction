@@ -1,4 +1,4 @@
-# Uncertainty-aware classification with set-valued predictions ![build](https://app.travis-ci.com/tfmortie/setvaluedprediction.svg?branch=main) ![license](https://img.shields.io/github/license/tfmortie/setvaluedprediction)
+# Uncertainty-aware classification with set-valued predictions ![build](https://app.travis-ci.com/tfmortie/setvaluedprediction.svg?branch=main) ![pypi version](https://pypi.org/project/setvaluedprediction/0.0.1/) ![license](https://img.shields.io/github/license/tfmortie/setvaluedprediction)
 
 Package for utility-based set-valued prediction in flat and hierarchical classification. 
 
@@ -11,6 +11,7 @@ This package provides different set-valued predictors for flat and hierarchical 
 ## Installation
 
 Clone this repository [`tfmortie/setvaluedprediction`](https://github.com/tfmortie/setvaluedprediction.git) and run `pip install . -r requirements.txt`
+or install by means of `pip install setvaluedprediction`.
 
 ## Usage
 
