@@ -44,7 +44,13 @@ flat = SVPClassifier(est, hierarchy="none")
 hier_r = SVPClassifier(est, hierarchy="random")
 ```
 
-With argument `hierarchy="random"`, we specify that no hierarchical labels are going to be provided. In this case, `SVPClassifier` automatically constructs a random hierarchy. The min and max degree of each node in the randomly generated tree can be controlled by means of the argument `k`. 
+With argument `hierarchy="random"`, we specify that no predefined hierarchical labels are going to be provided. In this case, `SVPClassifier` automatically constructs a random hierarchy. The min and max degree of each node in the randomly generated tree can be controlled by means of the argument `k`:
+
+
+```python
+# predictor with randomly generated binary tree as hierarchy
+hier_r = SVPClassifier(est, hierarchy="random", k=(2,2), random_state=2022)
+```
 
 Next, we load a non-hierarchical dataset provided from Scikit-learn and split in a training and validation set:
 
@@ -69,7 +75,7 @@ flat_probs = flat.predict_proba(X_te)
 hier_r_probs = hier_r.predict_proba(X_te)
 ```
 
-Hence, `SVPClassifier` boils down to a standard Scikit-learn estimator but with additional support for set-valued predictions: 
+Hence, `SVPClassifier` boils down to a standard Scikit-learn estimator, albeit with additional support for set-valued predictions: 
 
 ```python
 # initialize the set-valued predictor settings
@@ -168,6 +174,23 @@ Moreover, labels are encoded as strings and correspond to paths in the predefine
 ## Experiments paper(s)
 
 * Accompanying code for paper _Set-valued prediction in hierarchical classification with constrained representation complexity_ can be found in the folder [`src/test/svphc`](./src/test/svphc).
+
+## Citing
+
+If you use `setvaluedprediction` in your work, please use the following citation:
+
+```bibtex
+@InProceedings{Mortier22SVPHCCRC,
+    title = {Set-valued prediction in hierarchical classification with constrained representation complexity},
+    author = {Mortier, Thomas and H\"ullermeier, Eyke and Dembczy\'nski, Krzysztof and Waegeman, Willem},
+    booktitle = {Proceedings of the Thirty-Eight Conference on Uncertainty in Artificial Intelligence},
+  year = {2022},
+  series = {Proceedings of Machine Learning Research},
+  publisher = {PMLR},
+}
+```
+
+If you need more information, feel free to contact me by thomas(dot)mortier92(at)gmail(dot)com.
 
 ## References
 
