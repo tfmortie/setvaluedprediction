@@ -13,11 +13,11 @@ ext_modules = [
         'svp_cpp',
         ['svp/svp_cpp.cpp'],
         extra_compile_args=['-O3', '-g', '-fopenmp'],
-        extra_link_args=['-lgomp']) # use this line on linux
+        extra_link_args=['-lgomp']) # linux
 ]
 setup(name='setvaluedprediction',
       version='0.0.1',
-      description='',
+      description='Set-valued predictors in Python',
       author='Thomas Mortier',
       author_email='thomasf.mortier@ugent.be',
       url='https://github.com/tfmortie/setvaluedprediction',

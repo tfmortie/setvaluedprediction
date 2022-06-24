@@ -59,6 +59,40 @@ def traintest():
     print(f'{np.mean(np.array([len(p) for p in svp_preds_flat]))=}')
     print(f'{np.mean(np.array([len(p) for p in svp_preds_hier_p]))=}')
     print(f'{np.mean(np.array([len(p) for p in svp_preds_hier_r]))=}')
+    # check set-valued predictions for error control with c=K
+    params = {
+        "c": 256,
+        "svptype": "errorctrl",
+        "error": 0.01
+    }
+    svp_preds_flat = flat.predict_set(X_te, params)
+    svp_preds_hier_p = hier_p.predict_set(X_te, params)
+    svp_preds_hier_r = hier_r.predict_set(X_te, params)
+    print(f'{np.mean(np.array([len(p) for p in svp_preds_flat]))=}')
+    print(f'{np.mean(np.array([len(p) for p in svp_preds_hier_p]))=}')
+    print(f'{np.mean(np.array([len(p) for p in svp_preds_hier_r]))=}')
+    # check set-valued predictions for F-beta utility maximization with c=K
+    params = {
+        "c": 256,
+        "svptype": "fb",
+        "beta": 1
+    }
+    svp_preds_flat = flat.predict_set(X_te, params)
+    svp_preds_hier_p = hier_p.predict_set(X_te, params)
+    svp_preds_hier_r = hier_r.predict_set(X_te, params)
+    print(f'{np.mean(np.array([len(p) for p in svp_preds_flat]))=}')
+    print(f'{np.mean(np.array([len(p) for p in svp_preds_hier_p]))=}')
+    print(f'{np.mean(np.array([len(p) for p in svp_preds_hier_r]))=}')
+    # check set-valued predictions for size control with c=2
+    params = {
+        "c": 2,
+        "svptype": "sizectrl",
+        "size": 5
+    }
+    svp_preds_hier_p = hier_p.predict_set(X_te, params)
+    svp_preds_hier_r = hier_r.predict_set(X_te, params)
+    print(f'{np.mean(np.array([len(p) for p in svp_preds_hier_p]))=}')
+    print(f'{np.mean(np.array([len(p) for p in svp_preds_hier_r]))=}')
 
 if __name__=="__main__":
     traintest()
