@@ -15,6 +15,13 @@ or install by means of `pip install setvaluedprediction`.
 
 ## Examples 
 
+For multi-class classification, we provide the following set-valued predictors:
+
+- `SVPClassifier`: follows the Scikit-learn API
+- `SVPNet`: follows the PyTorch API
+
+Some minimal examples are given below.
+
 ### `SVPClassifier`
 
 We start by importing some packages that we will need throughout the example:
@@ -141,7 +148,7 @@ preds_hr = hier_r.predict(tensor_x_test)
 params = {
     "c": 10,
     "svptype": "sizectrl",
-    "error": 0.01,
+    "error": 0.01
 }
 svp_preds_f = flat.predict_set(tensor_x_te, params)
 svp_preds_hr = hier_r.predict_set(tensor_x_te, params)
@@ -152,11 +159,11 @@ svp_preds_hr = hier_r.predict_set(tensor_x_te, params)
 In case you want to work with predefined hierarchies, make sure that the labels are encoded in the following way:
 
 ```
-# example of two hierarchical labels in some predefined hierarchy
+# example of two hierarchical labels from a predefined hierarchy
 y = ["root;Family1;Genus1;Species1", "root;Family1;Genus1;Species2"]
 ```
 
-Moreover, labels are encoded as strings and correspond to paths in the predefined hierarchy where nodes are separated by `;`.
+Moreover, labels are encoded as strings and correspond to paths in the predefined hierarchy with nodes separated by `;`.
 
 ## Experiments paper(s)
 
