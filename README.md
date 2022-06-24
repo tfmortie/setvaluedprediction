@@ -10,7 +10,7 @@ This package provides different set-valued predictors for flat and hierarchical 
 
 ## Installation
 
-Clone the repository `https://github.com/tfmortie/setvaluedprediction.git` and run `pip install . -r requirements.txt`
+Clone this repository [`tfmortie/setvaluedprediction`](https://github.com/tfmortie/setvaluedprediction.git) and run `pip install . -r requirements.txt`
 
 ## Usage
 
