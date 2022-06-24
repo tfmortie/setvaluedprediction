@@ -16,7 +16,7 @@ Clone this repository [`tfmortie/setvaluedprediction`](https://github.com/tfmort
 
 ## Experiments paper(s)
 
-* Accompanying code for paper _Set-valued prediction in hierarchical classification with constrained representation complexity_ can be found in the folder `src/test/svphc`.
+* Accompanying code for paper _Set-valued prediction in hierarchical classification with constrained representation complexity_ can be found in the folder [`src/test/svphc`](./src/test/svphc).
 
 ## References
 

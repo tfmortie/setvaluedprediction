@@ -1,6 +1,8 @@
 """
 Implementation of PyTorch and Scikit-learn set-valued predictors for flat and hierarchical multi-class classification.
 
+TODO: - properly handle the case when c<K for SVPNet with hierarchy='none'
+
 Author: Thomas Mortier
 Date: November 2021
 """
@@ -184,6 +186,9 @@ class SVPNet(torch.nn.Module):
             c = int(params["c"])
         except ValueError:
             raise ValueError("Invalid representation complexity {0}. Must be integer.".format(params["c"]))
+        # c must be K in case of no hierarchy (except when len hstruct is not 0 in self.SVP)
+        if self.hierarchy == "none" and params["c"] < len(self.classes_):
+            warnings.warn("Representation complexity {0} must be K in case of no hierarchy!".format(params["c"]), FitFailedWarning)
         if params["svptype"] == "fb":
             try:
                 beta = int(params["beta"])
@@ -789,7 +794,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             q = PriorityQueue()
             q.push(1.,self.rlbl_)
             pr, _ = self.__gsvbop_hf_r_(x, params, params["c"], ystar, ystar_u, yhat, yhat_p, q, scores)
-            pr = self.hlabel_encoder_.inverse_transform([[ys] for ys in ystar])
+            pr = self.hlabel_encoder_.inverse_transform([[ys] for ys in pr])
             # happens when ystar is empty
             if type(pr) == np.ndarray:
                 pr = []
@@ -799,10 +804,9 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
     
     def __gsvbop_hf_r_(self, x, params, c, ystar, ystar_u, yhat, yhat_p, q, scores):
         while not q.is_empty():
-            ycur = yhat
+            ycur = copy.copy(yhat) # lists are passed by reference
             ycur_p = yhat_p
             c_node_prob, c_node = q.pop()
-            curr_node_lbl = c_node.split(";")[-1]
             # transform curr_node
             curr_node = self.hlabel_encoder_.hlbl_to_yhat_[c_node]
             curr_node_prob = 1-c_node_prob
@@ -829,29 +833,30 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                 if ycur_p >= 1.0-params["error"]:
                     ycur_u = 1.0/len(ycur)
                     if ycur_u >= ystar_u:
-                        ystar = ycur;
+                        ystar = ycur
                         ystar_u = ycur_u
             if params["svptype"] == "fb" or params["svptype"] == "dg":
                 if c > 1:
                     # copy priority queue and continue recursion
-                    ystar, ystar_u = self.__gsvbop_hf_r_(x, params, c-1, ystar, ystar_u, ycur, ycur_p, copy.deepcopy(q))
+                    ystar, ystar_u = self.__gsvbop_hf_r_(x, params, c-1, copy.copy(ystar), ystar_u, copy.copy(ycur), ycur_p, copy.deepcopy(q), scores)
             elif params["svptype"] == "sizectrl": 
                 if len(ycur) <= params["size"]:
                     if c > 1:
                         # copy priority queue and continue recursion
-                        ystar, ystar_u = self.__gsvbop_hf_r_(x, params, c-1, ystar, ystar_u, ycur, ycur_p, copy.deepcopy(q))
+                        ystar, ystar_u = self.__gsvbop_hf_r_(x, params, c-1, copy.copy(ystar), ystar_u, copy.copy(ycur), ycur_p, copy.deepcopy(q), scores)
                     else:
                         break
             else:
                 if ycur_p <= 1-params["error"]:
                     if c > 1:
                         # copy priority queue and continue recursion
-                        ystar, ystar_u = self.__gsvbop_hf_r_(x, params, c-1, ystar, ystar_u, ycur, ycur_p, copy.deepcopy(q))
+                        ystar, ystar_u = self.__gsvbop_hf_r_(x, params, c-1, copy.copy(ystar), ystar_u, copy.copy(ycur), ycur_p, copy.deepcopy(q), scores)
                     else:
                         break
             # check if we are at a leaf node
-            if len(self.tree_[curr_node_lbl]["children"]) > 0:
-                curr_node_v = self.tree_[curr_node_lbl]
+            #if len(self.tree_[c_node]["children"]) > 0:
+            if len(curr_node) > 1:
+                curr_node_v = self.tree_[c_node]
                 # check if we have a node with single path
                 if curr_node_v["estimator"] is not None:
                     # get probabilities
@@ -861,10 +866,10 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                     # add children to queue
                     for j, ch in enumerate(curr_node_v["children"]):
                         prob_child = curr_node_ch_probs[:,j][0]
-                        q.push(prob_child, c_node+";"+ch)
+                        q.push(prob_child, ch)
                 else:
                     ch = curr_node_v["children"][0]
-                    q.push(curr_node_prob, c_node+";"+ch)
+                    q.push(curr_node_prob, ch)
             else:
                 break
     

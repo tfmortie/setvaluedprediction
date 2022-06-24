@@ -57,7 +57,7 @@ def accuracy(predictions, labels):
 """ calculate recall given predictions (sets) and labels """
 def recall(predictions, labels):
     recall = []
-    for i,p in enumerate(predictions):
+    for i, _ in enumerate(predictions):
         recall.append(int((labels[i] in predictions[i])))
     
     return np.mean(np.array(recall))
@@ -65,7 +65,7 @@ def recall(predictions, labels):
 """ calculate average set size given predictions """
 def setsize(predictions):
     setsize = []
-    for i,p in enumerate(predictions):
+    for _, p in enumerate(predictions):
         setsize.append(len(p))
     
     return np.mean(np.array(setsize))
