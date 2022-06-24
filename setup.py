@@ -12,7 +12,7 @@ ext_modules = [
     CppExtension(
         'svp_cpp',
         ['svp/svp_cpp.cpp'],
-        extra_compile_args=['-O3', '-g', '-fopenmp'])
+        extra_compile_args=['-O3'])
         #extra_link_args=['-lgomp']) # linux
 ]
 setup(name='setvaluedprediction',
