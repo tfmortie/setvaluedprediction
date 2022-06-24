@@ -5,14 +5,11 @@ Author: Thomas Mortier
 Date: January 2022
 """
 import cvxpy
-import sys
 import time
 import torch
 import numpy as np
 
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-from main.py.utils import HLabelTransformer
+from svp.utils import HLabelTransformer
 from itertools import combinations
 
 """ Get Torch tensor (S x K, with S the search space and K the number of classes) which represents the hierarchy """

@@ -8,6 +8,10 @@ This package provides different set-valued predictors for flat and hierarchical 
 
 **TODO**: support for multi-label classification.
 
+## Installation
+
+Clone the repository `https://github.com/tfmortie/setvaluedprediction.git` and run `pip install . -r requirements.txt`
+
 ## Usage
 
 ## Experiments paper(s)

@@ -11,13 +11,12 @@ import copy
 import numpy as np
 
 from svp_cpp import SVP
-from .utils import FLabelTransformer, HLabelTransformer, PriorityQueue
+from .utils import LabelTransformer, FLabelTransformer, HLabelTransformer, PriorityQueue
 from sklearn.base import BaseEstimator, ClassifierMixin, clone
 from sklearn.utils import _message_with_time
 from sklearn.utils.validation import check_X_y, check_array, check_random_state
 from sklearn.exceptions import NotFittedError, FitFailedWarning
 from sklearn.metrics import accuracy_score
-
 from joblib import Parallel, delayed, parallel_backend
 from collections import ChainMap
 
@@ -386,7 +385,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                     fitted_tree = Parallel(n_jobs=self.n_jobs)(delayed(self._fit_node)(self.tree_[node]) for node in self.tree_)
                 self.tree_ = {k: v for d in fitted_tree for k, v in d.items()}
             except NotFittedError as e:
-                raise NotFittedError("Tree fitting failed! Make sure that the provided data is in the correct format.")
+                raise NotFittedError("Error {}, tree fitting failed! Make sure that the provided data is in the correct format.".format(e))
             # now store classes (leaf nodes) seen during fit
             cls = []
             nodes_to_visit = [self.tree_[self.rlbl_]]
@@ -487,9 +486,9 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                 if self.flabel_encoder_ is not None:
                     o = self.flabel_encoder_.inverse_transform([p.split(";")[-1] for p in o])
         except NotFittedError as e:
-            raise NotFittedError("This model is not fitted yet. Cal 'fit' \
+            raise NotFittedError("Error {}, this model is not fitted yet. Cal 'fit' \
                     with appropriate arguments before using this \
-                    method.")
+                    method.".format(e))
         stop_time = time.time()
         if self.verbose >= 1:
             print(_message_with_time("SVPClassifier", "predicting", stop_time-start_time))
@@ -568,9 +567,9 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                             # add child to nodes_to_visit
                             nodes_to_visit.append((self.tree_[c], parent_prob))
             except NotFittedError as e:
-                raise NotFittedError("This model is not fitted yet. Cal 'fit' \
+                raise NotFittedError("Error {}, this model is not fitted yet. Cal 'fit' \
                         with appropriate arguments before using this \
-                        method.") 
+                        method.".format(e)) 
             o = np.hstack(o)
         else:
             o = self._predict_proba(self.estimator, X, scores)
@@ -661,9 +660,9 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                 if self.flabel_encoder_ is not None:
                     o = [self.flabel_encoder_.inverse_transform(p) for p in o]
         except NotFittedError as e:
-            raise NotFittedError("This model is not fitted yet. Cal 'fit' \
+            raise NotFittedError("Error {}, this model is not fitted yet. Cal 'fit' \
                     with appropriate arguments before using this \
-                    method.")
+                    method.".format(e))
         stop_time = time.time()
         if self.verbose >= 1:
             print(_message_with_time("SVPClassifier", "predicting set", stop_time-start_time))
@@ -885,9 +884,9 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         try:
             preds = self.predict(X)
         except NotFittedError as e:
-            raise NotFittedError("This model is not fitted yet. Cal 'fit' \
+            raise NotFittedError("Error {}, this model is not fitted yet. Cal 'fit' \
                     with appropriate arguments before using this \
-                    method.")
+                    method.".format(e))
         stop_time = time.time()
         if self.verbose >= 1:
             print(_message_with_time("SVPClassifier", "calculating score", stop_time-start_time))
@@ -940,9 +939,9 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                         acc = accuracy_score(y_transform, node_preds)
                         score_dict[node["lbl"]] = acc
         except NotFittedError as e:
-            raise NotFittedError("This model is not fitted yet. Cal 'fit' \
+            raise NotFittedError("Error {}, this model is not fitted yet. Cal 'fit' \
                     with appropriate arguments before using this \
-                    method.")
+                    method.".format(e))
         stop_time = time.time()
         if self.verbose >= 1:
             print(_message_with_time("SVPClassifier", "calculating node scores", stop_time-start_time))

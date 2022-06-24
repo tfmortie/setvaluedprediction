@@ -4,16 +4,13 @@ Main module for experiments paper "Set-valued prediction in hierarchical classif
 Author: Thomas Mortier
 Date: January 2022
 """
-import sys
 import time
 import argparse
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import torch
 import numpy as np
 
-from main.py.svp import SVPNet 
-from main.py.utils import HLabelTransformer
+from svp.multiclass import SVPNet
+from svp.utils import HLabelTransformer
 from data import GET_DATASETLOADER
 from models import GET_PHI, accuracy, recall, setsize, paramparser
 from utils import get_hstruct_tensor, pwk_ilp_get_ab, pwk_ilp

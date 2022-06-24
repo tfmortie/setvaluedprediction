@@ -11,8 +11,6 @@ import pandas as pd
 from torchvision import transforms
 from PIL import Image
 from torch.utils.data import Dataset
-import torch.nn as nn
-
 
 """ general protein dataset file """
 class ProteinDataset(Dataset):
