@@ -788,8 +788,12 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             x = x.reshape(1,-1)
             q = PriorityQueue()
             q.push(1.,self.rlbl_)
-            pred, _ = self.__gsvbop_hf_r_(x, params, params["c"], ystar, ystar_u, yhat, yhat_p, q, scores)
-            preds.append(pred)
+            pr, _ = self.__gsvbop_hf_r_(x, params, params["c"], ystar, ystar_u, yhat, yhat_p, q, scores)
+            pr = self.hlabel_encoder_.inverse_transform([[ys] for ys in ystar])
+            # happens when ystar is empty
+            if type(pr) == np.ndarray:
+                pr = []
+            preds.append(pr)
         
         return {i: preds}
     

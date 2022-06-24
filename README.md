@@ -1,4 +1,4 @@
-# Uncertainty-aware classification with set-valued predictions ![build](https://travis-ci.org/bast/setvaluedprediction.svg?branch=master) ![license](https://img.shields.io/github/license/tfmortie/setvaluedprediction)
+# Uncertainty-aware classification with set-valued predictions ![build](https://app.travis-ci.com/tfmortie/setvaluedprediction.svg?branch=main) ![license](https://img.shields.io/github/license/tfmortie/setvaluedprediction)
 
 Package for utility-based set-valued prediction in flat and hierarchical classification. 
 
