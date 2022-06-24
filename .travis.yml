@@ -5,4 +5,4 @@ install:
   - pip install torch==1.10.0
   - pip install . -r requirements.txt
 script:
-  - python svp/tests/test_svpclassifier.py
+  - python svp/tests/test_svp.py
