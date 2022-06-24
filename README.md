@@ -171,7 +171,7 @@ Moreover, labels must be encoded as strings and should correspond to paths in th
 
 ## Experiments paper(s)
 
-* Accompanying code for paper _Set-valued prediction in hierarchical classification with constrained representation complexity_ can be found in the folder [`src/test/svphc`](./src/test/svphc).
+* Accompanying code for paper _Set-valued prediction in hierarchical classification with constrained representation complexity_ can be found in the folder [`src/test/svphc`](./svp/tests/svphc).
 
 ## Citing
 
