@@ -30,6 +30,10 @@ jobs:
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel==2.7.0
 
+      # Make sure that we have torch installed
+      - name: Install pytorch
+        run: python -m pip install torch
+
       # build wheels
       - name: Build wheels
         run: python -m cibuildwheel --output-dir wheelhouse
