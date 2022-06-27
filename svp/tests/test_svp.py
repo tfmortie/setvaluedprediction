@@ -40,7 +40,7 @@ def traintest_digits_sk():
     # first load data and get training and validation sets
     X, y = load_digits(return_X_y=True)
     X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.5, random_state=2021, stratify=y)
-    print(f'{X_tr.shape=}')
+    print(X_tr.shape)
     # create base estimator and feature extractor for SGDClassifier and SGDNet respectively
     est = SGDClassifier(loss="log_loss")
     flat = SVPClassifier(est, hierarchy="none")
@@ -54,14 +54,14 @@ def traintest_digits_sk():
     flat_probs = flat.predict_proba(X_te)
     hier_r_probs = hier_r.predict_proba(X_te)
     # check performance with score function
-    print(f'{flat.score(X_te, y_te)=}')
-    print(f'{hier_r.score(X_te, y_te)=}')
+    print(flat.score(X_te, y_te))
+    print(hier_r.score(X_te, y_te))
     # check performance based on top-1 preds
-    print(f'{np.mean(flat_preds==y_te)=}')
-    print(f'{np.mean(hier_r_preds==y_te)=}')
+    print(np.mean(flat_preds==y_te))
+    print(np.mean(hier_r_preds==y_te))
     # also check performance based on top-1 probs
-    print(f'{np.mean(flat.classes_[np.argmax(flat_probs,axis=1)]==y_te)=}')
-    print(f'{np.mean(hier_r.classes_[np.argmax(hier_r_probs,axis=1)]==y_te)=}')
+    print(np.mean(flat.classes_[np.argmax(flat_probs,axis=1)]==y_te))
+    print(np.mean(hier_r.classes_[np.argmax(hier_r_probs,axis=1)]==y_te))
     # check set-valued predictions for size control with c=K
     params = {
         "c": 256,
@@ -70,8 +70,8 @@ def traintest_digits_sk():
     }
     svp_preds_flat = flat.predict_set(X_te, params)
     svp_preds_hier_r = hier_r.predict_set(X_te, params)
-    print(f'{np.mean(np.array([len(p) for p in svp_preds_flat]))=}')
-    print(f'{np.mean(np.array([len(p) for p in svp_preds_hier_r]))=}')
+    print(np.mean(np.array([len(p) for p in svp_preds_flat])))
+    print(np.mean(np.array([len(p) for p in svp_preds_hier_r])))
     # check set-valued predictions for error control with c=K
     params = {
         "c": 256,
@@ -80,8 +80,8 @@ def traintest_digits_sk():
     }
     svp_preds_flat = flat.predict_set(X_te, params)
     svp_preds_hier_r = hier_r.predict_set(X_te, params)
-    print(f'{np.mean(np.array([len(p) for p in svp_preds_flat]))=}')
-    print(f'{np.mean(np.array([len(p) for p in svp_preds_hier_r]))=}')
+    print(np.mean(np.array([len(p) for p in svp_preds_flat])))
+    print(np.mean(np.array([len(p) for p in svp_preds_hier_r])))
     # check set-valued predictions for F-beta utility maximization with c=K
     params = {
         "c": 256,
@@ -90,8 +90,8 @@ def traintest_digits_sk():
     }
     svp_preds_flat = flat.predict_set(X_te, params)
     svp_preds_hier_r = hier_r.predict_set(X_te, params)
-    print(f'{np.mean(np.array([len(p) for p in svp_preds_flat]))=}')
-    print(f'{np.mean(np.array([len(p) for p in svp_preds_hier_r]))=}')
+    print(np.mean(np.array([len(p) for p in svp_preds_flat])))
+    print(np.mean(np.array([len(p) for p in svp_preds_hier_r])))
     # check set-valued predictions for size control with c=4
     params = {
         "c": 4,
@@ -99,7 +99,7 @@ def traintest_digits_sk():
         "size": 5
     }
     svp_preds_hier_r = hier_r.predict_set(X_te, params)
-    print(f'{np.mean(np.array([len(p) for p in svp_preds_hier_r]))=}')
+    print(np.mean(np.array([len(p) for p in svp_preds_hier_r])))
 
 def traintest_digits_nn():
     # first load data and get training and validation sets
@@ -111,7 +111,7 @@ def traintest_digits_nn():
     tensor_y_test = torch.Tensor(y_te)
     dataset = TensorDataset(tensor_x, tensor_y) 
     dataloader = DataLoader(dataset) # create your dataloader 
-    print(f'{X_tr.shape=}')
+    print(X_tr.shape)
     # create base estimator and feature extractor for SGDClassifier and SGDNet respectively
     phi = nn.Identity()
     flat = SVPNet(phi, X.shape[1], y, hierarchy="none")
@@ -148,12 +148,12 @@ def traintest_digits_nn():
     }
     svp_preds_f = flat.predict_set(tensor_x_test, params)
     svp_preds_hr = hier_r.predict_set(tensor_x_test, params)
-    print(f'{accuracy(preds_f, tensor_y_test)=}')
-    print(f'{accuracy(preds_hr, tensor_y_test)=}')
-    print(f'{recall(svp_preds_f, tensor_y_test)=}')
-    print(f'{recall(svp_preds_hr, tensor_y_test)=}')
-    print(f'{setsize(svp_preds_f)=}')
-    print(f'{setsize(svp_preds_hr)=}')
+    print(accuracy(preds_f, tensor_y_test))
+    print(accuracy(preds_hr, tensor_y_test))
+    print(recall(svp_preds_f, tensor_y_test))
+    print(recall(svp_preds_hr, tensor_y_test))
+    print(setsize(svp_preds_f))
+    print(setsize(svp_preds_hr))
     # check set-valued predictions for size control with c=2
     params = {
         "c": 2,
@@ -161,8 +161,8 @@ def traintest_digits_nn():
         "size": 2
     }
     svp_preds_hr = hier_r.predict_set(tensor_x_test, params)
-    print(f'{recall(svp_preds_hr, tensor_y_test)=}')
-    print(f'{setsize(svp_preds_hr)=}')
+    print(recall(svp_preds_hr, tensor_y_test))
+    print(setsize(svp_preds_hr))
 
 if __name__=="__main__":
     traintest_digits_sk()
