@@ -10,6 +10,7 @@ with open(os.path.join("svp", "version.txt")) as f:
 
 setup(name='setvaluedprediction',
     version=VERSION,
+    license="MIT license",
     description='Set-valued predictors in Python',
     long_description=README,
     long_description_content_type='text/markdown',
