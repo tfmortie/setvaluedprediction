@@ -1,5 +1,5 @@
-"""
-Main module for experiments paper "Set-valued prediction in hierarchical classification with constrained representation complexity"
+""" 
+Main module for experiments paper Set-valued prediction in hierarchical classification with constrained representation complexity.
 
 Author: Thomas Mortier
 Date: January 2022
@@ -106,7 +106,7 @@ def traintestsvp(args):
         if not args.ilp:
             if not args.hmodel and param["c"] != len(np.unique(classes)):
                 hstruct = get_hstruct_tensor(np.unique(classes), param)
-                print(f"{hstruct.shape=}")
+                print(hstruct.shape)
                 if args.gpu:
                     hstruct = hstruct.cuda()
                 model.SVP.set_hstruct(hstruct)
@@ -210,5 +210,5 @@ if __name__ == "__main__":
     parser.set_defaults(ilp=False)
     args = parser.parse_args()
     # print arguments to console
-    print(f"{args=}")
+    print(args)
     traintestsvp(args)
