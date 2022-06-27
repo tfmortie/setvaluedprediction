@@ -42,4 +42,4 @@ jobs:
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
           # check important procedures in our package
-          python -m pytest python/tests/test_svp.py
+          python -m pytest ./svp/tests/test_svp.py
