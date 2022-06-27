@@ -44,3 +44,8 @@ jobs:
           #flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
           # check important procedures in our package
           python -m pytest ./svp/tests/test_svp.py
+
+      - name: Lint with black
+        run: |
+          pip install black==22.3.0
+          black --check .

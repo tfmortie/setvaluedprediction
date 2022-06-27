@@ -1,5 +1,5 @@
 """
-Some test code.
+Pytest test code.
 
 Author: Thomas Mortier
 Date: June 2022
@@ -55,11 +55,12 @@ def test_digits_sk():
         X, y, test_size=0.5, random_state=2021, stratify=y
     )
     print(X_tr.shape)
-    # create base estimator and feature extractor for SGDClassifier and SGDNet respectively
-    try:
-        est = SGDClassifier(loss="log_loss")
-    except:
-        est = SGDClassifier(loss="log")
+    # create base estimator
+    if "log_loss" not in SGDClassifier.loss_functions:
+        est = SGDClassifier(loss="log") # depecrated since v1.1
+    else:
+        est = SGDClassifier(loss="log_loss") 
+    # create models
     flat = SVPClassifier(est, hierarchy="none")
     hier_r = SVPClassifier(
         est, hierarchy="random"
@@ -118,8 +119,9 @@ def test_digits_nn():
     dataset = TensorDataset(tensor_x, tensor_y)
     dataloader = DataLoader(dataset)  # create your dataloader
     print(X_tr.shape)
-    # create base estimator and feature extractor for SGDClassifier and SGDNet respectively
+    # create feature extractor
     phi = nn.Identity()
+    # create models
     flat = SVPNet(phi, X.shape[1], y, hierarchy="none")
     hier_r = SVPNet(phi, X.shape[1], y, hierarchy="random")
     # start fitting models
