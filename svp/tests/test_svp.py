@@ -57,9 +57,9 @@ def test_digits_sk():
     print(X_tr.shape)
     # create base estimator
     if "log_loss" not in SGDClassifier.loss_functions:
-        est = SGDClassifier(loss="log") # depecrated since v1.1
+        est = SGDClassifier(loss="log")  # depecrated since v1.1
     else:
-        est = SGDClassifier(loss="log_loss") 
+        est = SGDClassifier(loss="log_loss")
     # create models
     flat = SVPClassifier(est, hierarchy="none")
     hier_r = SVPClassifier(
