@@ -38,7 +38,7 @@ jobs:
           python -m pip install --editable .
 
       - name: Condtionally add cl to PATH
-        if: matrix.platform == "windows-latest"
+        if: matrix.platform == 'windows-latest'
         uses: microsoft/setup-msbuild@v1.1
 
       - name: Run tests
