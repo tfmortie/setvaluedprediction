@@ -20,6 +20,7 @@ setup(
     url="https://github.com/tfmortie/setvaluedprediction",
     packages=["svp"],
     install_requires=[
+        "Ninja",
         "joblib",
         "numpy",
         "pandas",
@@ -27,5 +28,5 @@ setup(
         "setuptools",
         "torch>=1.10.0",
     ],
-    include_package_data=True
+    include_package_data=True,
 )
