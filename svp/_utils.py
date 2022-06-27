@@ -14,16 +14,14 @@ try:
 except ImportError:
     raise ImportError("Included extensions require PyTorch 0.4 or higher")
 
+
 def _load_C_extension():
     this_dir = os.path.dirname(os.path.abspath(__file__))
     this_dir = os.path.join(this_dir, "csrc")
-    source = glob.glob(os.path.join(this_dir, "*.cpp")) 
+    source = glob.glob(os.path.join(this_dir, "*.cpp"))
     source = [os.path.join(this_dir, s) for s in source]
     extra_include_paths = [this_dir]
-    return load(
-        "svp_cpp",
-        source,
-        extra_include_paths=extra_include_paths
-    )
+    return load("svp_cpp", source, extra_include_paths=extra_include_paths)
+
 
 _C = _load_C_extension()
