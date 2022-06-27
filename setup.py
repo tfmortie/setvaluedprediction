@@ -27,4 +27,5 @@ setup(
         "setuptools",
         "torch>=1.10.0",
     ],
+    include_package_data=True
 )

@@ -1,0 +1,4 @@
+include svp version.txt
+include LICENSE
+include README.md
+recursive-include svp/csrc *
