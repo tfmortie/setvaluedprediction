@@ -12,11 +12,9 @@ import warnings
 import copy
 import numpy as np
 
+from ._utils import _C
 from svp_cpp import SVP
-try:
-    from .utils import LabelTransformer, FLabelTransformer, HLabelTransformer, PriorityQueue
-except:
-    from utils import LabelTransformer, FLabelTransformer, HLabelTransformer, PriorityQueue
+from .utils import LabelTransformer, FLabelTransformer, HLabelTransformer, PriorityQueue
 from sklearn.base import BaseEstimator, ClassifierMixin, clone
 from sklearn.utils import _message_with_time
 from sklearn.utils.validation import check_X_y, check_array, check_random_state

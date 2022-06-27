@@ -1,43 +1,27 @@
 #!/usr/bin/env python
-"""
-Setup file for setvaluedprediction package.
-
-Author: Thomas Mortier
-Date: June 2022
-"""
+import os
 from setuptools import setup
-from torch.utils.cpp_extension import BuildExtension, CppExtension
 
-ext_modules = [
-    CppExtension(
-        'svp_cpp',
-        ['svp/svp_cpp.cpp'],
-        extra_compile_args=['-O3'])
-        #extra_link_args=['-lgomp']) # linux
-]
+ROOT = os.path.abspath(os.path.dirname(__file__))
+with open(os.path.join(ROOT, 'README.md'), encoding="utf-8") as f:
+    README = f.read()
+with open(os.path.join("svp", "version.txt")) as f:
+    VERSION = f.read().strip()
+
 setup(name='setvaluedprediction',
-      version='0.0.1',
-      description='Set-valued predictors in Python',
-      author='Thomas Mortier',
-      author_email='thomasf.mortier@ugent.be',
-      url='https://github.com/tfmortie/setvaluedprediction',
-      packages=['svp'],
-      install_requires=[
+    version=VERSION,
+    description='Set-valued predictors in Python',
+    long_description=README,
+    long_description_content_type='text/markdown',
+    author='Thomas Mortier',
+    author_email='thomas.mortier92@gmail.com',
+    url='https://github.com/tfmortie/setvaluedprediction',
+    packages=['svp'],
+    install_requires=[
         'joblib',
         'numpy',
         'pandas',
         'scikit-learn',
         'setuptools',
-        'torch',
-      ],
-      #install_requires=[
-      #  'joblib == 1.1.0',
-      #  'numpy == 1.22.0',
-      #  'pandas == 1.2.4',
-      #  'scikit-learn == 1.1.1',
-      #  'setuptools == 61.2.0',
-      #  'torch == 1.10.0',
-      #],
-      ext_modules = ext_modules,
-      cmdclass={'build_ext': BuildExtension}
-     )
+        'torch']
+    )
