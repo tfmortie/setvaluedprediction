@@ -24,7 +24,7 @@ setup(
         "joblib",
         "numpy",
         "pandas",
-        "scikit-learn",
+        "scikit-learn>=0.23.0",
         "setuptools",
         "torch>=1.10.0",
     ],
