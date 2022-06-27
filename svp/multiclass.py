@@ -556,8 +556,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             # check whether the base estimator supports class scores
             if not hasattr(self.estimator, "decision_function"):
                 raise NotFittedError(
-                    "{0} does not support \
-                         probabilistic predictions nor scores.".format(
+                    "{0} does not support probabilistic predictions nor scores.".format(
                         self.estimator
                     )
                 )
@@ -584,9 +583,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                     )
         except NotFittedError as e:
             raise NotFittedError(
-                "Error {}, this model is not fitted yet. Cal 'fit' \
-                    with appropriate arguments before using this \
-                    method.".format(
+                "Error {}, this model is not fitted yet. Cal 'fit' with appropriate arguments before using this method.".format(
                     e
                 )
             )
@@ -641,8 +638,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             # check whether the base estimator supports class scores
             if not hasattr(self.estimator, "decision_function"):
                 raise NotFittedError(
-                    "{0} does not support \
-                         probabilistic predictions nor scores.".format(
+                    "{0} does not support probabilistic predictions nor scores.".format(
                         self.estimator
                     )
                 )
@@ -679,9 +675,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                             nodes_to_visit.append((self.tree_[c], parent_prob))
             except NotFittedError as e:
                 raise NotFittedError(
-                    "Error {}, this model is not fitted yet. Cal 'fit' \
-                        with appropriate arguments before using this \
-                        method.".format(
+                    "Error {}, this model is not fitted yet. Cal 'fit' with appropriate arguments before using this method.".format(
                         e
                     )
                 )
@@ -781,8 +775,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             # check whether the base estimator supports class scores
             if not hasattr(self.estimator, "decision_function"):
                 raise NotFittedError(
-                    "{0} does not support \
-                         probabilistic predictions nor scores.".format(
+                    "{0} does not support probabilistic predictions nor scores.".format(
                         self.estimator
                     )
                 )
@@ -823,9 +816,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                     o = [self.flabel_encoder_.inverse_transform(p) for p in o]
         except NotFittedError as e:
             raise NotFittedError(
-                "Error {}, this model is not fitted yet. Cal 'fit' \
-                    with appropriate arguments before using this \
-                    method.".format(
+                "Error {}, this model is not fitted yet. Cal 'fit' with appropriate arguments before using this method.".format(
                     e
                 )
             )
@@ -1113,9 +1104,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
             preds = self.predict(X)
         except NotFittedError as e:
             raise NotFittedError(
-                "Error {}, this model is not fitted yet. Cal 'fit' \
-                    with appropriate arguments before using this \
-                    method.".format(
+                "Error {}, this model is not fitted yet. Cal 'fit' with appropriate arguments before using this method.".format(
                     e
                 )
             )
@@ -1178,9 +1167,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                         score_dict[node["lbl"]] = acc
         except NotFittedError as e:
             raise NotFittedError(
-                "Error {}, this model is not fitted yet. Cal 'fit' \
-                    with appropriate arguments before using this \
-                    method.".format(
+                "Error {}, this model is not fitted yet. Cal 'fit' with appropriate arguments before using this method.".format(
                     e
                 )
             )
