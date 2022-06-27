@@ -405,7 +405,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
             The training input samples.
         y : array-like, shape (n_samples,)
-            The class labels
+            The class labels.
 
         Returns
         -------
@@ -712,15 +712,15 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
                 - svptype, str {"fb", "dg", "sizectrl", "errorctrl"}
                     Type of set-valued predictor.
                 - beta, int
-                    Beta parameter in case of svptype="fb"
+                    Beta parameter in case of svptype="fb".
                 - delta, float
-                    Float parameter in case of svptype="dg"
+                    Float parameter in case of svptype="dg".
                 - gamma, float
-                    Float parameter in case of svptype="dg"
+                    Float parameter in case of svptype="dg".
                 - size, int
-                    Size parameter in case of svptype="sizectrl"
+                    Size parameter in case of svptype="sizectrl".
                 - error, float
-                    Error parameter in case of svptype="errorctrl"
+                    Error parameter in case of svptype="errorctrl".
 
         Returns
         -------
