@@ -39,7 +39,7 @@ jobs:
 
       - name: Condtionally add cl to PATH
         if: matrix.platform == 'windows-latest'
-        uses: microsoft/setup-msbuild@v1.1
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Run tests
         run: |
