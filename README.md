@@ -1,4 +1,4 @@
-# Uncertainty-aware classification with set-valued predictions ![build](https://github.com/tfmortie/setvaluedprediction/actions/workflows/build.yml/badge.svg?branch=main) ![pypi version](https://badge.fury.io/py/setvaluedprediction.svg) ![license](https://img.shields.io/github/license/tfmortie/setvaluedprediction)
+# Uncertainty-aware classification with set-valued predictions [![build](https://github.com/tfmortie/setvaluedprediction/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/tfmortie/setvaluedprediction/actions/workflows/build.yml/badge.svg?branch=main) [![pypi version](https://badge.fury.io/py/setvaluedprediction.svg)](https://badge.fury.io/py/setvaluedprediction.svg) [![license](https://img.shields.io/github/license/tfmortie/setvaluedprediction)](https://img.shields.io/github/license/tfmortie/setvaluedprediction) [![Downloads](https://pepy.tech/badge/setvaluedprediction)](https://pepy.tech/badge/setvaluedprediction)
 
 Package for set-valued prediction in flat and hierarchical classification. 
 
