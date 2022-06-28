@@ -290,10 +290,10 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         Min and max number of children a node can have in the random generated tree. Is only used when hierarchy='random'.
     n_jobs : int, default=1
         The number of jobs to run in parallel.
-    verbose : int, default=0
-        Controls the verbosity: the higher, the more messages.
     random_state_ : RandomState or an int seed, default=None
         A random number generator instance to define the state of the random generator.
+    verbose : int, default=0
+        Controls the verbosity: the higher, the more messages.
     X_ : {array-like, sparse matrix}, shape (n_samples, n_features)
         Training input samples seen during fit.
     y_ : array-like, shape (n_samples,)

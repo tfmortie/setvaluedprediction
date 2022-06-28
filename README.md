@@ -17,12 +17,12 @@ or install by means of `pip install setvaluedprediction`.
 
 For multi-class classification, we provide the following set-valued predictors:
 
-- `SVPClassifier`: follows the Scikit-learn API
-- `SVPNet`: follows the PyTorch API
+- `svp.multiclass.SVPClassifier`: follows the Scikit-learn API
+- `svp.multiclass.SVPNet`: follows the PyTorch API
 
 Some minimal examples are given below.
 
-### `SVPClassifier`
+### `svp.multiclass.SVPClassifier`
 
 We start by importing some packages that we will need throughout the example:
 
@@ -97,7 +97,7 @@ svp_preds_hier_r = hier_r.predict_set(X_te, params_hier_r)
 
 For more information related to the different set-valued prediction settings, see references below.
 
-### `SVPNet`
+### `svp.multiclass.SVPNet`
 
 Creating a set-valued predictor in PyTorch is very similar to `SVPClassifier`:
 
