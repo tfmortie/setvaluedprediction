@@ -179,9 +179,7 @@ class LabelTransformer(TransformerMixin, BaseEstimator):
             y = self.flt.transform(y)
         if path is True:
             if self.hierarchy == "none":
-                raise NotFittedError(
-                    "Cannot return paths in hierarchy for flat labels."
-                )
+                raise RuntimeError("Cannot return paths in hierarchy for flat labels.")
             else:
                 y_transformed = self.hlt.transform(y, path)
         else:

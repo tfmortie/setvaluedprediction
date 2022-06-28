@@ -196,8 +196,8 @@ class SVPNet(torch.nn.Module):
         # process params and get set
         try:
             c = int(params["c"])
-        except ValueError:
-            raise ValueError(
+        except TypeError:
+            raise TypeError(
                 "Invalid representation complexity {0}. Must be integer.".format(
                     params["c"]
                 )
@@ -213,8 +213,8 @@ class SVPNet(torch.nn.Module):
         if params["svptype"] == "fb":
             try:
                 beta = int(params["beta"])
-            except ValueError:
-                raise ValueError(
+            except TypeError:
+                raise TypeError(
                     "Invalid beta {0}. Must be positive integer.".format(params["beta"])
                 )
             o_t = self.SVP.predict_set_fb(x, beta, c)
@@ -222,8 +222,8 @@ class SVPNet(torch.nn.Module):
             try:
                 delta = float(params["delta"])
                 gamma = float(params["gamma"])
-            except ValueError:
-                raise ValueError(
+            except TypeError:
+                raise TypeError(
                     "Invalid delta {0} or gamma {1}. Must be positive float.".format(
                         params["delta"], params["gamma"]
                     )
@@ -232,23 +232,23 @@ class SVPNet(torch.nn.Module):
         elif params["svptype"] == "sizectrl":
             try:
                 size = int(params["size"])
-            except ValueError:
-                raise ValueError(
+            except TypeError:
+                raise TypeError(
                     "Invalid size {0}. Must be positive integer.".format(params["size"])
                 )
             o_t = self.SVP.predict_set_size(x, size, c)
         elif params["svptype"] == "errorctrl":
             try:
                 error = float(params["error"])
-            except ValueError:
-                raise ValueError(
+            except TypeError:
+                raise TypeError(
                     "Invalid error {0}. Must be a real number in [0,1].".format(
                         params["error"]
                     )
                 )
             o_t = self.SVP.predict_set_error(x, error, c)
         else:
-            raise ValueError(
+            raise TypeError(
                 "Invalid SVP type {0}! Valid options: {fb, dg, sizectrl, errorctrl}.".format(
                     params["svptype"]
                 )
@@ -555,7 +555,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         if not hasattr(self.estimator, "predict_proba"):
             # check whether the base estimator supports class scores
             if not hasattr(self.estimator, "decision_function"):
-                raise NotFittedError(
+                raise RuntimeError(
                     "{0} does not support probabilistic predictions nor scores.".format(
                         self.estimator
                     )
@@ -637,7 +637,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         if not hasattr(self.estimator, "predict_proba"):
             # check whether the base estimator supports class scores
             if not hasattr(self.estimator, "decision_function"):
-                raise NotFittedError(
+                raise RuntimeError(
                     "{0} does not support probabilistic predictions nor scores.".format(
                         self.estimator
                     )
@@ -728,44 +728,44 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         start_time = time.time()
         # process params
         if type(params["c"]) != int:
-            raise ValueError(
+            raise TypeError(
                 "Invalid representation complexity {0}. Must be integer.".format(
                     params["c"]
                 )
             )
         # c must be K in case of no hierarchy
         if self.hierarchy == "none" and params["c"] < len(self.classes_):
-            raise ValueError(
+            raise TypeError(
                 "Representation complexity {0} must be K in case of no hierarchy!".format(
                     params["c"]
                 )
             )
         if params["svptype"] == "fb":
             if type(params["beta"]) != int:
-                raise ValueError(
+                raise TypeError(
                     "Invalid beta {0}. Must be positive integer.".format(params["beta"])
                 )
         elif params["svptype"] == "dg":
             if type(params["gamma"]) != float and type(params["delta"]) != float:
-                raise ValueError(
+                raise TypeError(
                     "Invalid delta {0} or gamma {1}. Must be positive float.".format(
                         params["delta"], params["gamma"]
                     )
                 )
         elif params["svptype"] == "sizectrl":
             if type(params["size"]) != int:
-                raise ValueError(
+                raise TypeError(
                     "Invalid size {0}. Must be positive integer.".format(params["size"])
                 )
         elif params["svptype"] == "errorctrl":
             if type(params["error"]) != float:
-                raise ValueError(
+                raise TypeError(
                     "Invalid error {0}. Must be a real number in [0,1].".format(
                         params["error"]
                     )
                 )
         else:
-            raise ValueError(
+            raise TypeError(
                 "Invalid SVP type {0}! Valid options: {fb, dg, sizectrl, errorctrl}.".format(
                     params["svptype"]
                 )
@@ -774,7 +774,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         if not hasattr(self.estimator, "predict_proba"):
             # check whether the base estimator supports class scores
             if not hasattr(self.estimator, "decision_function"):
-                raise NotFittedError(
+                raise RuntimeError(
                     "{0} does not support probabilistic predictions nor scores.".format(
                         self.estimator
                     )
@@ -1136,7 +1136,7 @@ class SVPClassifier(BaseEstimator, ClassifierMixin):
         """
         # check input and outputs
         if self.hierarchy == "none":
-            raise NotFittedError(
+            raise RuntimeError(
                 "Method 'score_nodes' is only supported for hierarchical classifiers!"
             )
         X, y = check_X_y(X, y, multi_output=False)
