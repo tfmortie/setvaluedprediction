@@ -72,7 +72,6 @@ class SVPNet(torch.nn.Module):
     >>>         hierarchy="random",
     >>>         k=(2,2),
     >>>         random_state=0)
-    >>> clf(X)
     """
 
     def __init__(
@@ -161,7 +160,7 @@ class SVPNet(torch.nn.Module):
         o = self.transformer.inverse_transform(o)
 
         return o
-
+    
     def predict_set(self, X, params):
         """Return set-valued predictions.
 
@@ -184,7 +183,7 @@ class SVPNet(torch.nn.Module):
                 - size, int
                     Size parameter in case of svptype="sizectrl"
                 - error, float
-                    Error parameter in case of svptype="errorctrl"
+                    Error parameter in case of svptype="errorctrl" or svptype="avgerrorctrl"
 
         Returns
         -------
@@ -247,9 +246,19 @@ class SVPNet(torch.nn.Module):
                     )
                 )
             o_t = self.SVP.predict_set_error(x, error, c)
+        elif params["svptype"] == "avgerrorctrl":
+            try:
+                error = float(params["error"])
+            except TypeError:
+                raise TypeError(
+                    "Invalid error {0}. Must be a real number in [0,1].".format(
+                        params["error"]
+                    )
+                )
+            o_t = self.SVP.predict_set_avgerror(x, error, c)
         else:
             raise TypeError(
-                "Invalid SVP type {0}! Valid options: {fb, dg, sizectrl, errorctrl}.".format(
+                "Invalid SVP type {0}! Valid options: {fb, dg, sizectrl, errorctrl, avgerrorctrl}.".format(
                     params["svptype"]
                 )
             )
@@ -261,7 +270,7 @@ class SVPNet(torch.nn.Module):
 
         return o
 
-
+    
 class SVPClassifier(BaseEstimator, ClassifierMixin):
     """Scikit-learn module which represents a set-valued predictor.
 

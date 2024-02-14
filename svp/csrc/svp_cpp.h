@@ -15,7 +15,8 @@ enum class SVPType {
     FB,
     DG,
     SIZECTRL,
-    ERRORCTRL
+    ERRORCTRL,
+    AVGERRORCTRL
 };
 
 /* Defines the set-valued prediction problem */
@@ -37,6 +38,7 @@ struct HNode : torch::nn::Module {
     std::vector<int64_t> y;
     std::vector<HNode*> chn;
     torch::nn::Module *par;
+    HNode* parent;
     // functions
     void addch(int64_t in_features, std::vector<int64_t> y, int64_t id); 
     torch::Tensor forward(torch::Tensor input, torch::nn::CrossEntropyLoss criterion, int64_t y_ind={});
@@ -69,7 +71,11 @@ struct SVP : torch::nn::Module {
     std::vector<std::vector<int64_t>> predict_set_dg(torch::Tensor input, double delta, double gamma, int64_t c);
     std::vector<std::vector<int64_t>> predict_set_size(torch::Tensor input, int64_t size, int64_t c);
     std::vector<std::vector<int64_t>> predict_set_error(torch::Tensor input, double error, int64_t c);
+    std::vector<std::vector<int64_t>> predict_set_avgerror(torch::Tensor input, double error, int64_t c);
     std::vector<std::vector<int64_t>> predict_set(torch::Tensor input, const param& params);
+    std::vector<std::vector<int64_t>> crsvphf(torch::Tensor input, const param& params);
+    std::vector<std::vector<int64_t>> cusvphf(torch::Tensor input, const param& params);
+    std::vector<std::vector<int64_t>> csvp(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> gsvbop(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> gsvbop_r(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> gsvbop_hf(torch::Tensor input, const param& params);
