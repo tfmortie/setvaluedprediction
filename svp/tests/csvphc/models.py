@@ -67,7 +67,7 @@ def recall(predictions, labels):
     for i, _ in enumerate(predictions):
         recall.append(int((labels[i] in predictions[i])))
 
-    return np.mean(np.array(recall))
+    return np.array(recall)
 
 
 """ calculate average set size given predictions """
@@ -78,7 +78,7 @@ def setsize(predictions):
     for _, p in enumerate(predictions):
         setsize.append(len(p))
 
-    return np.mean(np.array(setsize))
+    return np.array(setsize)
 
 
 """ parser for SVP parameters """

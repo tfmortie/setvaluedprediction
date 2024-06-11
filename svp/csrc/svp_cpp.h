@@ -16,7 +16,8 @@ enum class SVPType {
     DG,
     SIZECTRL,
     ERRORCTRL,
-    AVGERRORCTRL
+    AVGERRORCTRL,
+    APSAVGERRORCTRL
 };
 
 /* Defines the set-valued prediction problem */
@@ -76,6 +77,9 @@ struct SVP : torch::nn::Module {
     std::vector<std::vector<int64_t>> crsvphf(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> cusvphf(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> csvp(torch::Tensor input, const param& params);
+    std::vector<std::vector<int64_t>> acrsvp(torch::Tensor input, torch::Tensor u, torch::Tensor u, const param& params);
+    std::vector<std::vector<int64_t>> acusvp(torch::Tensor input, torch::Tensor u, const param& params);
+    std::vector<std::vector<int64_t>> acsvp(torch::Tensor input, torch::Tensor u, const param& params);
     std::vector<std::vector<int64_t>> gsvbop(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> gsvbop_r(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> gsvbop_hf(torch::Tensor input, const param& params);

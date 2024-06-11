@@ -154,3 +154,6 @@ dmypy.json
 
 # Files related to experiments 
 files/
+
+*.nvimlog
+*.pkl

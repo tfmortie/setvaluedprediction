@@ -7,6 +7,7 @@ Date: February 2024
 import time
 import argparse
 import torch
+import pickle
 import numpy as np
 
 from svp.multiclass import SVPNet
@@ -55,6 +56,9 @@ def traintestsvp(args):
         model.parameters(), lr=args.learnrate, momentum=args.momentum
     )
     # train
+    best_val_loss = float('inf')
+    early_stop_counter = 0
+    patience = 4
     for epoch in range(args.nepochs):
         train_loss, train_acc, train_time = 0.0, 0.0, 0.0
         for i, data in enumerate(train_data_loader, 1):
@@ -73,7 +77,8 @@ def traintestsvp(args):
             with torch.no_grad():
                 preds = model.predict(inputs)
                 train_acc += accuracy(preds, labels)
-            if i % args.nitprint == args.nitprint - 1:
+            #if i % args.nitprint == args.nitprint - 1:
+            if i % args.nitprint == 0:
                 print(
                     "Epoch {0}: training loss={1}   training accuracy={2}    training time={3}s".format(
                         epoch,
@@ -82,7 +87,37 @@ def traintestsvp(args):
                         train_time / args.nitprint,
                     )
                 )
-                train_loss, train_acc, train_time = 0.0, 0.0, 0.0
+                train_loss, train_acc, train_time = 0.0, 0.0, 0.0 
+        # validate
+        model.eval()
+        val_loss = 0.0
+        val_acc, val_time = 0.0, 0.0
+        for i, data in enumerate(val_data_loader, 1):
+            inputs, labels = data
+            labels = list(labels)
+            if args.gpu:
+                inputs = inputs.cuda()
+            with torch.no_grad():
+                start_time = time.time()
+                preds = model.predict(inputs)
+                loss = model(inputs, labels)
+                stop_time = time.time()
+                val_time += (stop_time - start_time) / args.batchsize
+                val_acc += accuracy(preds, labels)
+                val_loss += loss.item()
+        val_loss /= i
+        val_acc /= i
+        val_time /= i
+        print("Validation loss={0}  acc={1}   test time={2}s".format(val_loss, val_acc, val_time))
+        # Check for early stopping
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            early_stop_counter = 0
+        else:
+            early_stop_counter += 1
+            if early_stop_counter >= patience:
+                print("Early stopping at epoch", epoch)
+                break
     # validate: top-1 accuracy
     model.eval()
     val_acc, val_time = 0.0, 0.0
@@ -116,14 +151,18 @@ def traintestsvp(args):
             stop_time = time.time()
             val_time += (stop_time - start_time) / args.batchsize
     cal_scores = np.array(cal_scores) 
+    with open("./cal_scores.pkl", "wb") as f:
+        pickle.dump(cal_scores, f) 
     print("Mean NC score={0}   calibration time={1}s".format(np.mean(cal_scores), val_time / i))
     # validate: svp performance
     params = paramparser(args)
     for param in params:
+        print(param)
         # update error param, given NC scores
         param["error"]=np.quantile(cal_scores, (1+(1/len(cal_scores)))*(1-param["error"]))
+        print(param)
         preds_out, labels_out = [], []
-        val_recall, val_setsize, val_time = 0.0, 0.0, 0.0
+        val_recall, val_setsize, val_time = [], [], 0
         for i, data in enumerate(val_data_loader, 1):
             inputs, labels = data
             labels = list(labels)
@@ -133,12 +172,16 @@ def traintestsvp(args):
                 start_time = time.time()
                 preds = model.predict_set(inputs, param)
                 stop_time = time.time()
-                val_time += (stop_time - start_time) / args.batchsize
-                val_recall += recall(preds, labels)
-                val_setsize += setsize(preds)
+                val_time += (stop_time - start_time) / args.batchsize 
+                recall_np = recall(preds, labels)
+                setsize_np = setsize(preds)
+                val_recall.append(np.mean(recall_np))
+                val_setsize.append(np.mean(setsize_np)) 
                 if args.out != "":
                     preds_out.extend(preds)
                     labels_out.extend(labels)
+        val_recall = np.array(val_recall)
+        val_setsize = np.array(val_setsize)
         if args.out != "":
             with open(
                 "./{0}_{1}_{2}.csv".format(args.out, param["c"], param["size"]), "w"
@@ -147,8 +190,8 @@ def traintestsvp(args):
                     f.write("{0},{1}\n".format(pi, lj))
             f.close()
         print(
-            "Test SVP for setting {0}: recall={1}, |Ÿ|={2}, time={3}s".format(
-                param, val_recall / i, val_setsize / i, val_time / i
+            "Test SVP for setting {0}: recall={1} +- {2}, |Ÿ|={3} +- {4}, time={5}s".format(
+                param, np.mean(val_recall), np.std(val_recall), np.mean(val_setsize), np.std(val_setsize), val_time / i
             )
         )
         print("Done!")

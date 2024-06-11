@@ -103,7 +103,7 @@ class SVPNet(torch.nn.Module):
         else:
             self.SVP = SVP(
                 self.hidden_size, len(self.classes_), self.transformer.hstruct_
-            )
+            )    
 
     def forward(self, X, y=None):
         """Forward pass for the set-valued predictor.
@@ -183,7 +183,7 @@ class SVPNet(torch.nn.Module):
                 - size, int
                     Size parameter in case of svptype="sizectrl"
                 - error, float
-                    Error parameter in case of svptype="errorctrl" or svptype="avgerrorctrl"
+                    Error parameter in case of svptype="errorctrl", svptype="avgerrorcrl" or svptype="apsavgerrorctrl"
 
         Returns
         -------
@@ -256,6 +256,16 @@ class SVPNet(torch.nn.Module):
                     )
                 )
             o_t = self.SVP.predict_set_avgerror(x, error, c)
+        elif params["svptype"] == "apsavgerrorctrl":
+            try:
+                error = float(params["error"])
+            except TypeError:
+                raise TypeError(
+                    "Invalid error {0}. Must be a real number in [0,1].".format(
+                        params["error"]
+                    )
+                )
+            o_t = self.SVP.predict_set_apsavgerror(x, error, c)
         else:
             raise TypeError(
                 "Invalid SVP type {0}! Valid options: {fb, dg, sizectrl, errorctrl, avgerrorctrl}.".format(
