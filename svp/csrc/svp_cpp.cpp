@@ -322,7 +322,7 @@ std::vector<std::vector<int64_t>> SVP::predict_set(torch::Tensor input, const pa
         } else {
             prediction = this->crsvphf(input, p);
         }
-    else if (p.svptype == SVPType::APSAVGERRORCTRL) {
+    } else if (p.svptype == SVPType::APSAVGERRORCTRL) {
         torch::Tensor u = torch::rand({input.size(0)});
         if ((this->root->y.size() == 0) && (p.c == this->num_classes)) {
             prediction = this->acsvp(input, u, p);
@@ -344,6 +344,26 @@ std::vector<std::vector<int64_t>> SVP::predict_set(torch::Tensor input, const pa
     }
     
     return prediction;
+}
+
+std::vector<float> SVP::calibrate(torch::Tensor input, const param& p) {
+    std::vector<float> scores;
+    if (p.svptype == SVPType::AVGERRORCTRL) {
+        torch::Tensor u = torch::rand({input.size(0)});
+        std::vector<std::vector<int64_t>> (SVP::*svpPtr)(torch::Tensor, torch::Tensor, const param&);
+        if ((this->root->y.size() == 0) && (p.c == this->num_classes)) {
+            svpPtr = &SVP::acsvp;
+        } else if ((this->root->y.size() > 0) && (p.c == this->num_classes)) {
+            svpPtr = &SVP::acusvphf;
+        } else {
+            svpPtr = &SVP::acrsvphf;
+        }
+        std::vector<std::vector<int64_t>> result = (this->*svpPtr)(input, u, p);
+    
+        return scores;
+    } else {
+        exit(1);
+    } 
 }
 
 std::vector<std::vector<int64_t>> SVP::crsvphf(torch::Tensor input, const param& p) {
@@ -500,8 +520,9 @@ std::vector<std::vector<int64_t>> SVP::acrsvphf(torch::Tensor input, torch::Tens
             }
         }
         HNode* search_node {nullptr};
-        if (u[bi] <= V) {
-            ystarprime.popback();
+        float u_scalar = u[bi].item<float>();
+        if (u_scalar <= V) {
+            ystarprime.pop_back();
             search_node = previous_node;
         } else {
             search_node = current_node;
@@ -514,7 +535,7 @@ std::vector<std::vector<int64_t>> SVP::acrsvphf(torch::Tensor input, torch::Tens
                     search_node = search_node->parent;
                 }
             }
-            prediction.push_back(search_node->y)
+            prediction.push_back(search_node->y);
         } else {
             std::vector<int64_t> empty_set;
             prediction.push_back(empty_set);
@@ -524,7 +545,7 @@ std::vector<std::vector<int64_t>> SVP::acrsvphf(torch::Tensor input, torch::Tens
     return prediction;
 }
 
-std::vector<std::vector<int64_t>> SVP::acusvphf(torch::Tensor input, const param& p) {
+std::vector<std::vector<int64_t>> SVP::acusvphf(torch::Tensor input, torch::Tensor u, const param& p) {
     std::vector<std::vector<int64_t>> prediction;
     // run over each sample in batch
     for (int64_t bi=0; bi<input.size(0); ++bi)
@@ -563,8 +584,9 @@ std::vector<std::vector<int64_t>> SVP::acusvphf(torch::Tensor input, const param
                 }
             }
         }
-        if (u[bi] <= V) {
-            ystarprime.popback();
+        float u_scalar = u[bi].item<float>();
+        if (u_scalar <= V) {
+            ystarprime.pop_back();
         }
         if (!ystarprime.empty()) {
             prediction.push_back(ystarprime);
@@ -577,7 +599,7 @@ std::vector<std::vector<int64_t>> SVP::acusvphf(torch::Tensor input, const param
     return prediction;
 }
 
-std::vector<std::vector<int64_t>> SVP::acsvp(torch::Tensor input, const param& p) {
+std::vector<std::vector<int64_t>> SVP::acsvp(torch::Tensor input, torch::Tensor u, const param& p) {
     std::vector<std::vector<int64_t>> prediction;
     auto o = this->root->estimator->forward(input);
     o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1));
@@ -601,8 +623,9 @@ std::vector<std::vector<int64_t>> SVP::acsvp(torch::Tensor input, const param& p
                 break;
             } 
         }
-        if (u[bi] <= V) {
-            ystar.popback();
+        float u_scalar = u[bi].item<float>();
+        if (u_scalar <= V) {
+            ystar.pop_back();
         }
         if (!ystar.empty()) {
             prediction.push_back(ystar);

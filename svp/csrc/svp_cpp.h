@@ -73,12 +73,14 @@ struct SVP : torch::nn::Module {
     std::vector<std::vector<int64_t>> predict_set_size(torch::Tensor input, int64_t size, int64_t c);
     std::vector<std::vector<int64_t>> predict_set_error(torch::Tensor input, double error, int64_t c);
     std::vector<std::vector<int64_t>> predict_set_avgerror(torch::Tensor input, double error, int64_t c);
+    std::vector<std::vector<int64_t>> predict_set_apsavgerror(torch::Tensor input, double error, int64_t c);
     std::vector<std::vector<int64_t>> predict_set(torch::Tensor input, const param& params);
+    std::vector<float> calibrate(torch::Tensor input, const param& p);
     std::vector<std::vector<int64_t>> crsvphf(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> cusvphf(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> csvp(torch::Tensor input, const param& params);
-    std::vector<std::vector<int64_t>> acrsvp(torch::Tensor input, torch::Tensor u, torch::Tensor u, const param& params);
-    std::vector<std::vector<int64_t>> acusvp(torch::Tensor input, torch::Tensor u, const param& params);
+    std::vector<std::vector<int64_t>> acrsvphf(torch::Tensor input, torch::Tensor u, const param& params);
+    std::vector<std::vector<int64_t>> acusvphf(torch::Tensor input, torch::Tensor u, const param& params);
     std::vector<std::vector<int64_t>> acsvp(torch::Tensor input, torch::Tensor u, const param& params);
     std::vector<std::vector<int64_t>> gsvbop(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> gsvbop_r(torch::Tensor input, const param& params);
