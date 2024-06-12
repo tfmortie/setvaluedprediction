@@ -37,6 +37,38 @@ bool isSubset(const std::vector<T>& subset, const std::vector<T>& superset) {
     return true;
 }
 
+template<typename T>
+std::vector<float> linspace(T start_in, T end_in, int num_in)
+{
+
+  std::vector<float> linspaced;
+
+  float start = static_cast<float>(start_in);
+  float end = static_cast<float>(end_in);
+  float num = static_cast<float>(num_in);
+
+  if (num == 0) { return linspaced; }
+  if (num == 1) 
+    {
+      linspaced.push_back(start);
+      return linspaced;
+    }
+
+  float delta = (end - start) / (num - 1);
+
+  for(int i=0; i < num-1; ++i)
+    {
+      linspaced.push_back(start + delta * i);
+    }
+  linspaced.push_back(end); 
+
+  return linspaced;
+}
+
+bool contains(const std::vector<int64_t>& vec, int64_t value) {
+    return std::find(vec.begin(), vec.end(), value) != vec.end();
+}
+
 void HNode::addch(int64_t in_features, std::vector<int64_t> y, int64_t id) {
     // check if leaf or internal node 
     if (this->chn.size() > 0)
@@ -346,7 +378,7 @@ std::vector<std::vector<int64_t>> SVP::predict_set(torch::Tensor input, const pa
     return prediction;
 }
 
-std::vector<float> SVP::calibrate(torch::Tensor input, const param& p) {
+std::vector<float> SVP::calibrate(torch::Tensor input, torch::Tensor labels, const param& p) {
     std::vector<float> scores;
     if (p.svptype == SVPType::AVGERRORCTRL) {
         torch::Tensor u = torch::rand({input.size(0)});
@@ -358,8 +390,26 @@ std::vector<float> SVP::calibrate(torch::Tensor input, const param& p) {
         } else {
             svpPtr = &SVP::acrsvphf;
         }
-        std::vector<std::vector<int64_t>> result = (this->*svpPtr)(input, u, p);
-    
+        // Generate a vector of candidate thresholds
+        std::vector<float> conflevel_l = linspace(0, 1, 100);
+        // Run over samples and determine the min threshold such that the ground-truth class is included
+        for (int64_t bi=0; bi<input.size(0); ++bi)
+        {
+            for (int64_t ci=0; ci<conflevel_l.size(); ++ci) {
+                // create a mutable copy
+                param p_c = p;
+                // Set the siginficance level
+                p_c.error = 1-conflevel_l[ci];
+                // Calculate result
+                std::vector<std::vector<int64_t>> result = (this->*svpPtr)(input, u, p_c);
+                int64_t label_value = labels[bi].item<int64_t>();
+                if (contains(result[bi], label_value)) {
+                    scores.push_back(conflevel_l[ci]);
+                    break;
+                }            
+            }
+        }
+ 
         return scores;
     } else {
         exit(1);
