@@ -74,8 +74,10 @@ struct SVP : torch::nn::Module {
     std::vector<std::vector<int64_t>> predict_set_error(torch::Tensor input, double error, int64_t c);
     std::vector<std::vector<int64_t>> predict_set_avgerror(torch::Tensor input, double error, int64_t c);
     std::vector<std::vector<int64_t>> predict_set_apsavgerror(torch::Tensor input, double error, int64_t c);
+    std::vector<double> calibrate_avgerror(torch::Tensor input, torch::Tensor labels, double error, int64_t c);
+    std::vector<double> calibrate_apsavgerror(torch::Tensor input, torch::Tensor labels, double error, int64_t c);
     std::vector<std::vector<int64_t>> predict_set(torch::Tensor input, const param& params);
-    std::vector<float> calibrate(torch::Tensor input, torch::Tensor labels, const param& p);
+    std::vector<double> calibrate(torch::Tensor input, torch::Tensor labels, const param& p);
     std::vector<std::vector<int64_t>> crsvphf(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> cusvphf(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> csvp(torch::Tensor input, const param& params);

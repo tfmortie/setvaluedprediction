@@ -38,14 +38,14 @@ bool isSubset(const std::vector<T>& subset, const std::vector<T>& superset) {
 }
 
 template<typename T>
-std::vector<float> linspace(T start_in, T end_in, int num_in)
+std::vector<double> linspace(T start_in, T end_in, int num_in)
 {
 
-  std::vector<float> linspaced;
+  std::vector<double> linspaced;
 
-  float start = static_cast<float>(start_in);
-  float end = static_cast<float>(end_in);
-  float num = static_cast<float>(num_in);
+  double start = static_cast<double>(start_in);
+  double end = static_cast<double>(end_in);
+  double num = static_cast<double>(num_in);
 
   if (num == 0) { return linspaced; }
   if (num == 1) 
@@ -54,7 +54,7 @@ std::vector<float> linspace(T start_in, T end_in, int num_in)
       return linspaced;
     }
 
-  float delta = (end - start) / (num - 1);
+  double delta = (end - start) / (num - 1);
 
   for(int i=0; i < num-1; ++i)
     {
@@ -344,6 +344,30 @@ std::vector<std::vector<int64_t>> SVP::predict_set_apsavgerror(torch::Tensor inp
     return prediction;
 }
 
+std::vector<double> SVP::calibrate_avgerror(torch::Tensor input, torch::Tensor labels, double error, int64_t c) {
+    std::vector<double> scores;
+    // init problem
+    param p;
+    p.svptype = SVPType::AVGERRORCTRL;
+    p.error = error;
+    p.c = c;
+    scores = this->calibrate(input, labels, p);
+    
+    return scores;
+}
+
+std::vector<double> SVP::calibrate_apsavgerror(torch::Tensor input, torch::Tensor labels, double error, int64_t c) {
+    std::vector<double> scores;
+    // init problem
+    param p;
+    p.svptype = SVPType::APSAVGERRORCTRL;
+    p.error = error;
+    p.c = c;
+    scores = this->calibrate(input, labels, p);
+    
+    return scores;
+}
+
 std::vector<std::vector<int64_t>> SVP::predict_set(torch::Tensor input, const param& p) {
     std::vector<std::vector<int64_t>> prediction;
     if (p.svptype == SVPType::AVGERRORCTRL) {
@@ -378,8 +402,8 @@ std::vector<std::vector<int64_t>> SVP::predict_set(torch::Tensor input, const pa
     return prediction;
 }
 
-std::vector<float> SVP::calibrate(torch::Tensor input, torch::Tensor labels, const param& p) {
-    std::vector<float> scores;
+std::vector<double> SVP::calibrate(torch::Tensor input, torch::Tensor labels, const param& p) {
+    std::vector<double> scores;
     if (p.svptype == SVPType::AVGERRORCTRL) {
         torch::Tensor u = torch::rand({input.size(0)});
         std::vector<std::vector<int64_t>> (SVP::*svpPtr)(torch::Tensor, torch::Tensor, const param&);
@@ -391,7 +415,7 @@ std::vector<float> SVP::calibrate(torch::Tensor input, torch::Tensor labels, con
             svpPtr = &SVP::acrsvphf;
         }
         // Generate a vector of candidate thresholds
-        std::vector<float> conflevel_l = linspace(0, 1, 100);
+        std::vector<double> conflevel_l = linspace(0, 1, 100);
         // Run over samples and determine the min threshold such that the ground-truth class is included
         for (int64_t bi=0; bi<input.size(0); ++bi)
         {
@@ -535,8 +559,8 @@ std::vector<std::vector<int64_t>> SVP::acrsvphf(torch::Tensor input, torch::Tens
     // run over each sample in batch
     for (int64_t bi=0; bi<input.size(0); ++bi)
     { 
-        float V {0.0};
-        float cumsum {0.0};
+        double V {0.0};
+        double cumsum {0.0};
         HNode* current_node {nullptr};
         HNode* previous_node {nullptr};
         std::vector<int64_t> ystarprime;
@@ -570,7 +594,7 @@ std::vector<std::vector<int64_t>> SVP::acrsvphf(torch::Tensor input, torch::Tens
             }
         }
         HNode* search_node {nullptr};
-        float u_scalar = u[bi].item<float>();
+        double u_scalar = u[bi].item<double>();
         if (u_scalar <= V) {
             ystarprime.pop_back();
             search_node = previous_node;
@@ -600,8 +624,8 @@ std::vector<std::vector<int64_t>> SVP::acusvphf(torch::Tensor input, torch::Tens
     // run over each sample in batch
     for (int64_t bi=0; bi<input.size(0); ++bi)
     { 
-        float V {0.0};
-        float cumsum {0.0};
+        double V {0.0};
+        double cumsum {0.0};
         HNode* current_node {nullptr};
         HNode* previous_node {nullptr};
         std::vector<int64_t> ystarprime;
@@ -634,7 +658,7 @@ std::vector<std::vector<int64_t>> SVP::acusvphf(torch::Tensor input, torch::Tens
                 }
             }
         }
-        float u_scalar = u[bi].item<float>();
+        double u_scalar = u[bi].item<double>();
         if (u_scalar <= V) {
             ystarprime.pop_back();
         }
@@ -658,8 +682,8 @@ std::vector<std::vector<int64_t>> SVP::acsvp(torch::Tensor input, torch::Tensor 
     // run over each sample in batch
     for (int64_t bi=0; bi<input.size(0); ++bi)
     {
-        float V {0.0};
-        float cumsum {0.0};
+        double V {0.0};
+        double cumsum {0.0};
         std::vector<int64_t> ystar;
         for (int64_t yi=0; yi<idx.size(1); ++yi)
         {
@@ -673,7 +697,7 @@ std::vector<std::vector<int64_t>> SVP::acsvp(torch::Tensor input, torch::Tensor 
                 break;
             } 
         }
-        float u_scalar = u[bi].item<float>();
+        double u_scalar = u[bi].item<double>();
         if (u_scalar <= V) {
             ystar.pop_back();
         }
@@ -989,5 +1013,7 @@ PYBIND11_MODULE(svp_cpp, m) {
         .def("predict_set_error", &SVP::predict_set_error, "input"_a, "error"_a, "c"_a)
         .def("predict_set_avgerror", &SVP::predict_set_avgerror, "input"_a, "error"_a, "c"_a)
         .def("predict_set_apsavgerror", &SVP::predict_set_apsavgerror, "input"_a, "error"_a, "c"_a)
+        .def("calibrate_avgerror", &SVP::calibrate_avgerror, "input"_a, "labels"_a, "error"_a, "c"_a)
+        .def("calibrate_apsavgerror", &SVP::calibrate_avgerror, "input"_a, "labels"_a, "error"_a, "c"_a)
         .def("set_hstruct", &SVP::set_hstruct, "hstruct"_a);
 }

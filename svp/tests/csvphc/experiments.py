@@ -137,17 +137,14 @@ def traintestsvp(args):
     cal_scores = []
     model.eval()
     for i, data in enumerate(cal_data_loader, 1):
-        inputs, labels = data
-        labels = list(labels)
+        inputs, labels_t = data
+        labels = list(labels_t)
         if args.gpu:
             inputs = inputs.cuda()
         with torch.no_grad():
             start_time = time.time()
-            # get probs
-            probs = model(inputs).detach().cpu().numpy()
-            idx = np.array([list(model.classes_).index(l) for l in labels])
-            # select probs for classes
-            cal_scores.extend(list(1-probs[np.arange(len(idx)),idx]))
+            params = paramparser(args)
+            cal_scores.extend(model.calibrate(inputs, labels_t, params))
             stop_time = time.time()
             val_time += (stop_time - start_time) / args.batchsize
     cal_scores = np.array(cal_scores) 
@@ -197,7 +194,7 @@ def traintestsvp(args):
         print("Done!")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Code for WUML workshop experiments")
+    parser = argparse.ArgumentParser(description="Code for DFSVPHC experiments")
     # data args
     parser.add_argument("-cr", dest="calratio", type=float, default=0.2)
     parser.add_argument("-p", dest="datapath", type=str, required=True)
@@ -220,7 +217,7 @@ if __name__ == "__main__":
     parser.add_argument("--gpu", dest="gpu", action="store_true")
     parser.add_argument("--no-gpu", dest="gpu", action="store_false")
     # SVP args
-    parser.add_argument("-svptype", default="avgerrorctrl")
+    parser.add_argument("-svptype", default="apsavgerrorctrl")
     parser.add_argument("-error", dest="error", nargs="+", type=float, default=[0.05])
     parser.add_argument("-c", dest="c", nargs="+", type=int, default=[1])
     # defaults

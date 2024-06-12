@@ -160,7 +160,57 @@ class SVPNet(torch.nn.Module):
         o = self.transformer.inverse_transform(o)
 
         return o
-    
+
+    def calibrate(self, X, y, params):
+        """ Return scores on a calibration set.
+
+        Parameters
+        ----------
+        X : tensor, shape (n_samples, n_features)
+            Calibration samples.
+        y : tensor, shape (n_samples,)
+        params : dict
+            Represents parameters for the set-valued prediction task. Must contain following keys:
+                - c, int
+                    Representation complexity.
+                - svptype, str {"fb", "dg", "sizectrl", "errorctrl"}
+                    Type of set-valued predictor.
+                - beta, int
+                    Beta parameter in case of svptype="fb"
+                - delta, float
+                    Float parameter in case of svptype="dg"
+                - gamma, float
+                    Float parameter in case of svptype="dg"
+                - size, int
+                    Size parameter in case of svptype="sizectrl"
+                - error, float
+                    Error parameter in case of svptype="errorctrl", svptype="avgerrorcrl" or svptype="apsavgerrorctrl"
+
+        Returns
+        -------
+        o : list, size (n_samples,)
+            List of non-conformity scores.
+        """
+        o = []
+        if params["svptype"] == "avgerrorctrl":
+            # TODO: implement this part in Cpp module
+            # get probs
+            probs = self(X).detach().cpu().numpy()
+            idx = np.array([list(self.classes_).index(l) for l in list(y)])
+            # select probs for classes
+            o.extend(list(1-probs[np.arange(len(idx)),idx])) 
+        elif params["svptype"] == "apsavgerrorctrl":
+            o.extend(list(self.SVP.calibrate_apsavgerror(X, y, params["error"], params["c"])))
+        else:
+            warnings.warn(
+                "Set-valued prediction type {0} is not suported".format(
+                    params["svptype"]
+                ),
+                FitFailedWarning,
+            )
+
+        return o
+ 
     def predict_set(self, X, params):
         """Return set-valued predictions.
 
