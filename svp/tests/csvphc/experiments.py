@@ -137,14 +137,14 @@ def traintestsvp(args):
     cal_scores = []
     model.eval()
     for i, data in enumerate(cal_data_loader, 1):
-        inputs, labels_t = data
-        labels = list(labels_t)
+        inputs, labels = data
+        labels = list(labels)
         if args.gpu:
             inputs = inputs.cuda()
         with torch.no_grad():
             start_time = time.time()
             params = paramparser(args)
-            cal_scores.extend(model.calibrate(inputs, labels_t, params))
+            cal_scores.extend(model.calibrate(inputs, labels, params[0]))
             stop_time = time.time()
             val_time += (stop_time - start_time) / args.batchsize
     cal_scores = np.array(cal_scores) 

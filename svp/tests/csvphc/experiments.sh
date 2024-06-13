@@ -8,7 +8,7 @@
 
 
 # Debug
-python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 256 -error 0.05 0.10 0.15 
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 1 -c 1 256 -error 0.05 0.10 0.15 
 #python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 --no-hm -hi 1000 -b 32 -ne 100 -c 256 -error 0.05 0.10 0.15 
 #python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 --rh -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 256 -error 0.05 0.10 0.15 
 

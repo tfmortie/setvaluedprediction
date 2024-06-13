@@ -226,12 +226,12 @@ torch::Tensor SVP::forward(torch::Tensor input) {
                     o[bi][current.node->y[0]] = current.prob;
                 } else {
                     // forward step
-                    auto o = current.node->estimator->forward(input[bi].view({1,-1}));
-                    o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1)).to(torch::kCPU);
+                    auto out = current.node->estimator->forward(input[bi].view({1,-1}));
+                    out = torch::nn::functional::softmax(out, torch::nn::functional::SoftmaxFuncOptions(1)).to(torch::kCPU);
                     for (int64_t i = 0; i<static_cast<int64_t>(current.node->chn.size()); ++i)
                     {
                         HNode* c_node {current.node->chn[i]};
-                        q.push({c_node, current.prob*o[0][i].item<double>()});
+                        q.push({c_node, current.prob*out[0][i].item<double>()});
                     }
                 }
             }
@@ -404,7 +404,7 @@ std::vector<std::vector<int64_t>> SVP::predict_set(torch::Tensor input, const pa
 
 std::vector<double> SVP::calibrate(torch::Tensor input, torch::Tensor labels, const param& p) {
     std::vector<double> scores;
-    if (p.svptype == SVPType::AVGERRORCTRL) {
+    if (p.svptype == SVPType::APSAVGERRORCTRL) {
         torch::Tensor u = torch::rand({input.size(0)});
         std::vector<std::vector<int64_t>> (SVP::*svpPtr)(torch::Tensor, torch::Tensor, const param&);
         if ((this->root->y.size() == 0) && (p.c == this->num_classes)) {
@@ -1014,6 +1014,6 @@ PYBIND11_MODULE(svp_cpp, m) {
         .def("predict_set_avgerror", &SVP::predict_set_avgerror, "input"_a, "error"_a, "c"_a)
         .def("predict_set_apsavgerror", &SVP::predict_set_apsavgerror, "input"_a, "error"_a, "c"_a)
         .def("calibrate_avgerror", &SVP::calibrate_avgerror, "input"_a, "labels"_a, "error"_a, "c"_a)
-        .def("calibrate_apsavgerror", &SVP::calibrate_avgerror, "input"_a, "labels"_a, "error"_a, "c"_a)
+        .def("calibrate_apsavgerror", &SVP::calibrate_apsavgerror, "input"_a, "labels"_a, "error"_a, "c"_a)
         .def("set_hstruct", &SVP::set_hstruct, "hstruct"_a);
 }

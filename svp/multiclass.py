@@ -168,7 +168,7 @@ class SVPNet(torch.nn.Module):
         ----------
         X : tensor, shape (n_samples, n_features)
             Calibration samples.
-        y : tensor, shape (n_samples,)
+        y : list, size (n_samples,)
         params : dict
             Represents parameters for the set-valued prediction task. Must contain following keys:
                 - c, int
@@ -192,14 +192,19 @@ class SVPNet(torch.nn.Module):
             List of non-conformity scores.
         """
         o = []
+        # Transform labels to tensor
         if params["svptype"] == "avgerrorctrl":
             # TODO: implement this part in Cpp module
             # get probs
             probs = self(X).detach().cpu().numpy()
-            idx = np.array([list(self.classes_).index(l) for l in list(y)])
+            idx = np.array([list(self.classes_).index(l) for l in y])
             # select probs for classes
             o.extend(list(1-probs[np.arange(len(idx)),idx])) 
         elif params["svptype"] == "apsavgerrorctrl":
+            # Get embeddings first
+            X = self.phi(X)
+            # Transform labels
+            y = torch.Tensor(self.transformer.transform(y, False)).long()
             o.extend(list(self.SVP.calibrate_apsavgerror(X, y, params["error"], params["c"])))
         else:
             warnings.warn(
