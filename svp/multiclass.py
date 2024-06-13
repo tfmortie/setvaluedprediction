@@ -205,7 +205,7 @@ class SVPNet(torch.nn.Module):
             X = self.phi(X)
             # Transform labels
             y = torch.Tensor(self.transformer.transform(y, False)).long()
-            o.extend(list(self.SVP.calibrate_apsavgerror(X, y, params["error"], params["c"])))
+            o.extend(list(self.SVP.calibrate_apsavgerror(X, y)))
         else:
             warnings.warn(
                 "Set-valued prediction type {0} is not suported".format(

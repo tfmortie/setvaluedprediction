@@ -344,25 +344,21 @@ std::vector<std::vector<int64_t>> SVP::predict_set_apsavgerror(torch::Tensor inp
     return prediction;
 }
 
-std::vector<double> SVP::calibrate_avgerror(torch::Tensor input, torch::Tensor labels, double error, int64_t c) {
+std::vector<double> SVP::calibrate_avgerror(torch::Tensor input, torch::Tensor labels) {
     std::vector<double> scores;
     // init problem
     param p;
     p.svptype = SVPType::AVGERRORCTRL;
-    p.error = error;
-    p.c = c;
     scores = this->calibrate(input, labels, p);
     
     return scores;
 }
 
-std::vector<double> SVP::calibrate_apsavgerror(torch::Tensor input, torch::Tensor labels, double error, int64_t c) {
+std::vector<double> SVP::calibrate_apsavgerror(torch::Tensor input, torch::Tensor labels) {
     std::vector<double> scores;
     // init problem
     param p;
     p.svptype = SVPType::APSAVGERRORCTRL;
-    p.error = error;
-    p.c = c;
     scores = this->calibrate(input, labels, p);
     
     return scores;
@@ -1013,7 +1009,7 @@ PYBIND11_MODULE(svp_cpp, m) {
         .def("predict_set_error", &SVP::predict_set_error, "input"_a, "error"_a, "c"_a)
         .def("predict_set_avgerror", &SVP::predict_set_avgerror, "input"_a, "error"_a, "c"_a)
         .def("predict_set_apsavgerror", &SVP::predict_set_apsavgerror, "input"_a, "error"_a, "c"_a)
-        .def("calibrate_avgerror", &SVP::calibrate_avgerror, "input"_a, "labels"_a, "error"_a, "c"_a)
-        .def("calibrate_apsavgerror", &SVP::calibrate_apsavgerror, "input"_a, "labels"_a, "error"_a, "c"_a)
+        .def("calibrate_avgerror", &SVP::calibrate_avgerror, "input"_a, "labels"_a)
+        .def("calibrate_apsavgerror", &SVP::calibrate_apsavgerror, "input"_a, "labels"_a)
         .def("set_hstruct", &SVP::set_hstruct, "hstruct"_a);
 }
