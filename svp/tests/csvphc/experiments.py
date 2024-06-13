@@ -14,6 +14,7 @@ from svp.multiclass import SVPNet
 from svp.utils import HLabelTransformer
 from data import GET_DATASETLOADER
 from models import GET_PHI, accuracy, recall, setsize, paramparser
+from tqdm import tqdm
 
 """ main function which trains and tests the SVP module """
 
@@ -50,7 +51,6 @@ def traintestsvp(args):
         )
     if args.gpu:
         model = model.cuda()
-    print(model.transformer.hstruct_)
     # optimizer
     optimizer = torch.optim.SGD(
         model.parameters(), lr=args.learnrate, momentum=args.momentum
@@ -136,7 +136,7 @@ def traintestsvp(args):
     # calibrate 
     cal_scores = []
     model.eval()
-    for i, data in enumerate(cal_data_loader, 1):
+    for i, data in enumerate(tqdm(cal_data_loader), 1):
         inputs, labels = data
         labels = list(labels)
         if args.gpu:
@@ -156,7 +156,7 @@ def traintestsvp(args):
     for param in params:
         print(param)
         # update error param, given NC scores
-        param["error"]=np.quantile(cal_scores, (1+(1/len(cal_scores)))*(1-param["error"]))
+        param["error"]=1-np.quantile(cal_scores, (1+(1/len(cal_scores)))*(1-param["error"]))
         print(param)
         preds_out, labels_out = [], []
         val_recall, val_setsize, val_time = [], [], 0
@@ -196,7 +196,7 @@ def traintestsvp(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Code for DFSVPHC experiments")
     # data args
-    parser.add_argument("-cr", dest="calratio", type=float, default=0.2)
+    parser.add_argument("-cr", dest="calratio", type=float, default=0.01)
     parser.add_argument("-p", dest="datapath", type=str, required=True)
     parser.add_argument("-k", dest="nclasses", type=int, required=True)
     parser.add_argument("-dim", dest="dim", type=int, required=True)
