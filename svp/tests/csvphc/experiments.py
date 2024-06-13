@@ -133,65 +133,66 @@ def traintestsvp(args):
             val_time += (stop_time - start_time) / args.batchsize
             val_acc += accuracy(preds, labels)
     print("Test accuracy={0}   test time={1}s".format(val_acc / i, val_time / i))
-    # calibrate 
-    cal_scores = []
-    model.eval()
-    for i, data in enumerate(tqdm(cal_data_loader), 1):
-        inputs, labels = data
-        labels = list(labels)
-        if args.gpu:
-            inputs = inputs.cuda()
-        with torch.no_grad():
-            start_time = time.time()
-            params = paramparser(args)
-            cal_scores.extend(model.calibrate(inputs, labels, params[0]))
-            stop_time = time.time()
-            val_time += (stop_time - start_time) / args.batchsize
-    cal_scores = np.array(cal_scores) 
-    with open("./cal_scores.pkl", "wb") as f:
-        pickle.dump(cal_scores, f) 
-    print("Mean NC score={0}   calibration time={1}s".format(np.mean(cal_scores), val_time / i))
-    # validate: svp performance
-    params = paramparser(args)
-    for param in params:
-        print(param)
-        # update error param, given NC scores
-        param["error"]=1-np.quantile(cal_scores, (1+(1/len(cal_scores)))*(1-param["error"]))
-        print(param)
-        preds_out, labels_out = [], []
-        val_recall, val_setsize, val_time = [], [], 0
-        for i, data in enumerate(val_data_loader, 1):
+    for c in args.c:
+        params = {"svptype": args.svptype, "c": c, "error": None}
+        # calibrate 
+        cal_scores = []
+        model.eval()
+        for i, data in enumerate(tqdm(cal_data_loader), 1):
             inputs, labels = data
             labels = list(labels)
             if args.gpu:
                 inputs = inputs.cuda()
             with torch.no_grad():
                 start_time = time.time()
-                preds = model.predict_set(inputs, param)
+                cal_scores.extend(model.calibrate(inputs, labels, params))
                 stop_time = time.time()
-                val_time += (stop_time - start_time) / args.batchsize 
-                recall_np = recall(preds, labels)
-                setsize_np = setsize(preds)
-                val_recall.append(np.mean(recall_np))
-                val_setsize.append(np.mean(setsize_np)) 
-                if args.out != "":
-                    preds_out.extend(preds)
-                    labels_out.extend(labels)
-        val_recall = np.array(val_recall)
-        val_setsize = np.array(val_setsize)
-        if args.out != "":
-            with open(
-                "./{0}_{1}_{2}.csv".format(args.out, param["c"], param["size"]), "w"
-            ) as f:
-                for (pi, lj) in zip(preds_out, labels_out):
-                    f.write("{0},{1}\n".format(pi, lj))
-            f.close()
-        print(
-            "Test SVP for setting {0}: recall={1} +- {2}, |Ÿ|={3} +- {4}, time={5}s".format(
-                param, np.mean(val_recall), np.std(val_recall), np.mean(val_setsize), np.std(val_setsize), val_time / i
+                val_time += (stop_time - start_time) / args.batchsize
+        cal_scores = np.array(cal_scores) 
+        with open("./cal_scores.pkl", "wb") as f:
+            pickle.dump(cal_scores, f) 
+        print("Mean NC score={0}   calibration time={1}s".format(np.mean(cal_scores), val_time / i))
+        # validate: svp performance
+        for e in args.error:
+            # update error param, given NC scores
+            params["error"] = e
+            print(params)
+            params["error"]=1-np.quantile(cal_scores, (1+(1/len(cal_scores)))*(1-params["error"]))
+            print(params)
+            preds_out, labels_out = [], []
+            val_recall, val_setsize, val_time = [], [], 0
+            for i, data in enumerate(val_data_loader, 1):
+                inputs, labels = data
+                labels = list(labels)
+                if args.gpu:
+                    inputs = inputs.cuda()
+                with torch.no_grad():
+                    start_time = time.time()
+                    preds = model.predict_set(inputs, params)
+                    stop_time = time.time()
+                    val_time += (stop_time - start_time) / args.batchsize 
+                    recall_np = recall(preds, labels)
+                    setsize_np = setsize(preds)
+                    val_recall.append(np.mean(recall_np))
+                    val_setsize.append(np.mean(setsize_np)) 
+                    if args.out != "":
+                        preds_out.extend(preds)
+                        labels_out.extend(labels)
+            val_recall = np.array(val_recall)
+            val_setsize = np.array(val_setsize)
+            if args.out != "":
+                with open(
+                    "./{0}_{1}_{2}.csv".format(args.out, params["c"], params["size"]), "w"
+                ) as f:
+                    for (pi, lj) in zip(preds_out, labels_out):
+                        f.write("{0},{1}\n".format(pi, lj))
+                f.close()
+            print(
+                "Test SVP for setting {0}: recall={1} +- {2}, |Ÿ|={3} +- {4}, time={5}s".format(
+                    params, np.mean(val_recall), np.std(val_recall), np.mean(val_setsize), np.std(val_setsize), val_time / i
+                )
             )
-        )
-        print("Done!")
+            print("Done!")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Code for DFSVPHC experiments")
