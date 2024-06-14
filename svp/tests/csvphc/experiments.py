@@ -202,7 +202,7 @@ def traintestsvp(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Code for DFSVPHC experiments")
     # data args
-    parser.add_argument("-cr", dest="calratio", type=float, default=0.01)
+    parser.add_argument("-cr", dest="calratio", type=float, default=0.1)
     parser.add_argument("-p", dest="datapath", type=str, required=True)
     parser.add_argument("-k", dest="nclasses", type=int, required=True)
     parser.add_argument("-dim", dest="dim", type=int, required=True)
