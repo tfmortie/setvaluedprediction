@@ -152,12 +152,17 @@ def traintestsvp(args):
         with open("./cal_scores.pkl", "wb") as f:
             pickle.dump(cal_scores, f) 
         print("Mean NC score={0}   calibration time={1}s".format(np.mean(cal_scores), val_time / i))
+        print("Number of calibration points: {}".format(len(cal_scores)))
         # validate: svp performance
         for e in args.error:
             # update error param, given NC scores
             params["error"] = e
             print(params)
-            params["error"]=1-np.quantile(cal_scores, (1+(1/len(cal_scores)))*(1-params["error"]))
+            if params["svptype"] == "apsavgerrorctrl":
+                idx_thresh = int(np.ceil((1-params["error"])*(1+len(cal_scores))))
+                params["error"] = cal_scores[idx_thresh] 
+            else:
+                params["error"] = np.quantile(cal_scores, (1+(1/len(cal_scores)))*(1-params["error"]))
             print(params)
             preds_out, labels_out = [], []
             val_recall, val_setsize, val_time = [], [], 0

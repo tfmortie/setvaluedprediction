@@ -184,7 +184,7 @@ class SVPNet(torch.nn.Module):
                 - size, int
                     Size parameter in case of svptype="sizectrl"
                 - error, float
-                    Error parameter in case of svptype="errorctrl", svptype="avgerrorcrl" or svptype="apsavgerrorctrl"
+                    Error parameter in case of svptype="errorctrl", svptype="avgerrorctrl" or svptype="apsavgerrorctrl"
 
         Returns
         -------
