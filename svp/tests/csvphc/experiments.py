@@ -51,10 +51,11 @@ def traintestsvp(args):
         )
     if args.gpu:
         model = model.cuda()
-    # optimizer
-    optimizer = torch.optim.SGD(
-        model.parameters(), lr=args.learnrate, momentum=args.momentum
-    )
+    # optimizer 
+    #optimizer = torch.optim.SGD(
+    #    model.parameters(), lr=args.learnrate, momentum=args.momentum
+    #)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.learnrate)
     # train
     best_val_loss = float('inf')
     early_stop_counter = 0
@@ -160,7 +161,7 @@ def traintestsvp(args):
             print(params)
             if params["svptype"] == "apsavgerrorctrl":
                 idx_thresh = int(np.ceil((1-params["error"])*(1+len(cal_scores))))
-                params["error"] = cal_scores[idx_thresh] 
+                params["error"] = 1-np.sort(cal_scores)[idx_thresh]
             else:
                 params["error"] = np.quantile(cal_scores, (1+(1/len(cal_scores)))*(1-params["error"]))
             print(params)
