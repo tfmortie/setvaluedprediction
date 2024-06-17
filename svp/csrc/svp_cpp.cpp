@@ -415,7 +415,7 @@ std::vector<double> SVP::calibrate(torch::Tensor input, torch::Tensor labels, co
             svpPtr = &SVP::acrsvphf;
         }
         // Generate a vector of candidate thresholds
-        std::vector<double> conflevel_l = linspace(0, 1, 50);
+        std::vector<double> conflevel_l = linspace(0, 1, 200);
         // Run over samples and determine the min threshold such that the ground-truth class is included
         for (int64_t bi=0; bi<input.size(0); ++bi)
         {
