@@ -224,7 +224,7 @@ if __name__ == "__main__":
     parser.add_argument("--gpu", dest="gpu", action="store_true")
     parser.add_argument("--no-gpu", dest="gpu", action="store_false")
     # SVP args
-    parser.add_argument("-svptype", default="apsavgerrorctrl")
+    parser.add_argument("-svptype", default="avgerrorctrl")
     parser.add_argument("-error", dest="error", nargs="+", type=float, default=[0.05])
     parser.add_argument("-c", dest="c", nargs="+", type=int, default=[1])
     # defaults
