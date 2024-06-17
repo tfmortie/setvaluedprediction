@@ -694,7 +694,6 @@ std::vector<std::vector<int64_t>> SVP::acsvp(torch::Tensor input, torch::Tensor 
             } 
         }
         double u_scalar = u[bi].item<double>();
-        std::cout << ystar << std::endl;
         if (u_scalar <= V) {
             ystar.pop_back();
         }
