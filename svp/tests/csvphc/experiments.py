@@ -135,7 +135,7 @@ def traintestsvp(args):
             val_acc += accuracy(preds, labels)
     print("Test accuracy={0}   test time={1}s".format(val_acc / i, val_time / i))
     for c in args.c:
-        params = {"svptype": args.svptype, "c": c, "error": None}
+        params = {"svptype": args.svptype, "c": c, "error": 0.05} # note: error is ignored during calibration
         # calibrate 
         cal_scores = []
         model.eval()
