@@ -18,6 +18,14 @@
 #python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL101 -k 97 -dim 200 --no-hm -hi 1000 -b 32 -ne 100 -c 97 -error 0.05 0.10 0.15 |& tee ./logs/exp_f_cal101.txt
 #python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL101 --rh -k 97 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 97 -error 0.05 0.10 0.15 |& tee ./logs/exp_rh_cal101.txt
 
+# CAL256 (debug)
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 256 -error 0.05 0.10 0.15 -svptype avgerrorctrl |& tee ./logs/exp_h_noaps_cal256.txt
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 256 -error 0.05 0.10 0.15 -svptype apsavgerrorctrl |& tee ./logs/exp_h_aps_cal256.txt
+#
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 --no-hm -hi 1000 -b 32 -ne 100 -c 256 -error 0.05 0.10 0.15 -svptype avgerrorctrl -out avgerrorctrl |& tee ./logs/exp_f_noaps_cal256_debug.txt
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 --no-hm -hi 1000 -b 32 -ne 100 -c 256 -error 0.05 0.10 0.15 -svptype apsavgerrorctrl -out apsavgerrorctrl |& tee ./logs/exp_f_aps_cal256_debug.txt
+
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 256 -error 0.05 -svptype apsavgerrorctrl |& tee ./logs/exp_h_aps_cal256_debug.txt
 
 # CAL256
 python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 256 -error 0.05 0.10 0.15 -svptype avgerrorctrl |& tee ./logs/exp_h_noaps_cal256.txt

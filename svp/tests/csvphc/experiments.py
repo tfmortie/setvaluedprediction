@@ -167,6 +167,7 @@ def traintestsvp(args):
             print(params)
             preds_out, labels_out = [], []
             val_recall, val_setsize, val_time = [], [], 0
+            probs_out = []
             for i, data in enumerate(val_data_loader, 1):
                 inputs, labels = data
                 labels = list(labels)
@@ -175,6 +176,8 @@ def traintestsvp(args):
                 with torch.no_grad():
                     start_time = time.time()
                     preds = model.predict_set(inputs, params)
+                    if args.out != "":
+                        probs = model(inputs).detach().cpu().numpy()
                     stop_time = time.time()
                     val_time += (stop_time - start_time) / args.batchsize 
                     recall_np = recall(preds, labels)
@@ -184,15 +187,18 @@ def traintestsvp(args):
                     if args.out != "":
                         preds_out.extend(preds)
                         labels_out.extend(labels)
+                        probs_out.extend(probs)
             val_recall = np.array(val_recall)
             val_setsize = np.array(val_setsize)
             if args.out != "":
                 with open(
-                    "./{0}_{1}_{2}.csv".format(args.out, params["c"], params["size"]), "w"
+                    "./{0}_{1}_{2}.csv".format(args.out, params["c"], params["error"]), "w"
                 ) as f:
                     for (pi, lj) in zip(preds_out, labels_out):
                         f.write("{0},{1}\n".format(pi, lj))
                 f.close()
+                probs_out = np.vstack(probs_out)
+                np.save("./{0}_{1}_{2}.npy".format(args.out, params["c"], params["error"]), probs_out)
             print(
                 "Test SVP for setting {0}: recall={1} +- {2}, |Ÿ|={3} +- {4}, time={5}s".format(
                     params, np.mean(val_recall), np.std(val_recall), np.mean(val_setsize), np.std(val_setsize), val_time / i
