@@ -35,13 +35,13 @@ struct param
 /* Structure which represents the basic component for SVP  */
 struct HNode : torch::nn::Module {
     // attributes
-    torch::nn::Linear estimator {nullptr};
+    torch::nn::Sequential estimator {nullptr};
     std::vector<int64_t> y;
     std::vector<HNode*> chn;
     torch::nn::Module *par;
     HNode* parent;
     // functions
-    void addch(int64_t in_features, std::vector<int64_t> y, int64_t id); 
+    void addch(int64_t in_features, double dp, std::vector<int64_t> y, int64_t id); 
     torch::Tensor forward(torch::Tensor input, torch::nn::CrossEntropyLoss criterion, int64_t y_ind={});
 };
 
@@ -58,11 +58,12 @@ struct QNode
 struct SVP : torch::nn::Module {
     // attributes
     int64_t num_classes;
+    double db;
     torch::Tensor hstruct;
     HNode* root;
     // forward-pass functions
-    SVP(int64_t in_features, int64_t num_classes, std::vector<std::vector<int64_t>> hstruct={});
-    SVP(int64_t in_features, int64_t num_classes, torch::Tensor hstruct);
+    SVP(int64_t in_features, int64_t num_classes, double dp, std::vector<std::vector<int64_t>> hstruct={});
+    SVP(int64_t in_features, int64_t num_classes, double dp, torch::Tensor hstruct);
     torch::Tensor forward(torch::Tensor input, std::vector<std::vector<int64_t>> target={}); /* forward pass for hierarchical model */
     torch::Tensor forward(torch::Tensor input, torch::Tensor target={}); /* forward pass for flat model */
     torch::Tensor forward(torch::Tensor input); /* forward pass for flat model */

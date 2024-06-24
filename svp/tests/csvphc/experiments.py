@@ -33,6 +33,7 @@ def traintestsvp(args):
             model = SVPNet(
                 phi,
                 args.hidden,
+                args.dropout,
                 classes,
                 hierarchy="random",
                 random_state=args.randomseed,
@@ -41,6 +42,7 @@ def traintestsvp(args):
             model = SVPNet(
                 phi,
                 args.hidden,
+                args.dropout,
                 classes,
                 hierarchy="predefined",
                 random_state=args.randomseed,
@@ -52,16 +54,17 @@ def traintestsvp(args):
     if args.gpu:
         model = model.cuda()
     # optimizer 
-    #optimizer = torch.optim.SGD(
-    #    model.parameters(), lr=args.learnrate, momentum=args.momentum
-    #)
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.learnrate)
+    optimizer = torch.optim.SGD(
+        model.parameters(), lr=args.learnrate, momentum=args.momentum
+    )
+    #optimizer = torch.optim.Adam(model.parameters(), lr=args.learnrate)
     # train
     best_val_loss = float('inf')
     early_stop_counter = 0
     patience = 4
     for epoch in range(args.nepochs):
         train_loss, train_acc, train_time = 0.0, 0.0, 0.0
+        model.train()
         for i, data in enumerate(train_data_loader, 1):
             inputs, labels = data
             labels = list(labels)
@@ -220,6 +223,7 @@ if __name__ == "__main__":
     # model args
     parser.add_argument("-b", dest="batchsize", type=int, default=32)
     parser.add_argument("-ne", dest="nepochs", type=int, default=20)
+    parser.add_argument("-d", dest="dropout", type=float, default=0.1)
     parser.add_argument("-l", dest="learnrate", type=float, default=0.0001)
     parser.add_argument("-m", dest="momentum", type=float, default=0.99)
     parser.add_argument("-np", dest="nitprint", type=int, default=100)

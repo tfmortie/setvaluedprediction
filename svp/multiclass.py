@@ -33,6 +33,8 @@ class SVPNet(torch.nn.Module):
         Represents the neural network architecture which returns the hidden representations for the probabilistic model. Must be of type torch.nn.Module with output (batch_size, hidden_size).
     hidden_size : int
         Size of the hidden representation which is passed to the probabilistic model.
+    dropout : float
+        Dropout probability for last layer.
     classes : list
         List containing classes seen during training time.
     hierarchy : {'predefined', 'random', 'none'}, default='none'
@@ -49,6 +51,8 @@ class SVPNet(torch.nn.Module):
         Represents the neural network architecture which learns the hidden representations. for the probabilistic model. Must be of type torch.nn.Module with output (batch_size, hidden_size).
     hidden_size : int
         Size of the hidden representation which is passed to the probabilistic model.
+    dropout : float
+        Dropout probability for last layer.
     hierarchy : {'predefined', 'random', 'none'}, default='none'
         Type of probabilistic model to consider in the set-valued predictor.
     k : tuple of int, default=None
@@ -68,6 +72,7 @@ class SVPNet(torch.nn.Module):
     >>> import torch.nn as nn
     >>> net = SVPNet(nn.Linear(1000,1000),
     >>>         hidden_size = 1000,
+    >>>         dropout = 0.1,
     >>>         classes = y,
     >>>         hierarchy="random",
     >>>         k=(2,2),
@@ -75,11 +80,12 @@ class SVPNet(torch.nn.Module):
     """
 
     def __init__(
-        self, phi, hidden_size, classes, hierarchy="none", k=None, random_state=None
+        self, phi, hidden_size, dropout, classes, hierarchy="none", k=None, random_state=None
     ):
         super(SVPNet, self).__init__()
         self.phi = phi
         self.hidden_size = hidden_size
+        self.dropout = dropout
         self.hierarchy = hierarchy
         if self.hierarchy not in ["predefined", "random", "none"]:
             raise ValueError(
@@ -99,10 +105,10 @@ class SVPNet(torch.nn.Module):
                 self.transformer.flt.inverse_transform(self.transformer.hlt.classes_)
             )
         if self.hierarchy == "none":
-            self.SVP = SVP(self.hidden_size, len(self.classes_), [])
+            self.SVP = SVP(self.hidden_size, len(self.classes_), self.dropout, [])
         else:
             self.SVP = SVP(
-                self.hidden_size, len(self.classes_), self.transformer.hstruct_
+                self.hidden_size, len(self.classes_), self.dropout, self.transformer.hstruct_
             )    
 
     def forward(self, X, y=None):
