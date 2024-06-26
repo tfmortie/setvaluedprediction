@@ -17,7 +17,7 @@ enum class SVPType {
     SIZECTRL,
     ERRORCTRL,
     AVGERRORCTRL,
-    APSAVGERRORCTRL
+    RAPSAVGERRORCTRL /* see Romano et al. (2020); Angelopoulos et al. (2022)*/
 };
 
 /* Defines the set-valued prediction problem */
@@ -29,6 +29,10 @@ struct param
     double gamma {0.6};
     int64_t size {1};
     double error {0.05};
+    /* params for RAPS method (see Angelopoulos et al. (2020))*/
+    bool rand {true};
+    double lambda {0.0};
+    int64_t k {1};
     int64_t c {1}; /* representation complexity */
 };
 
@@ -74,11 +78,12 @@ struct SVP : torch::nn::Module {
     std::vector<std::vector<int64_t>> predict_set_size(torch::Tensor input, int64_t size, int64_t c);
     std::vector<std::vector<int64_t>> predict_set_error(torch::Tensor input, double error, int64_t c);
     std::vector<std::vector<int64_t>> predict_set_avgerror(torch::Tensor input, double error, int64_t c);
-    std::vector<std::vector<int64_t>> predict_set_apsavgerror(torch::Tensor input, double error, int64_t c);
+    std::vector<std::vector<int64_t>> predict_set_rapsavgerror(torch::Tensor input, double error, bool rand, double lambda, int64_t k, int64_t c);
     std::vector<double> calibrate_avgerror(torch::Tensor input, torch::Tensor labels, double error, int64_t c);
-    std::vector<double> calibrate_apsavgerror(torch::Tensor input, torch::Tensor labels, double error, int64_t c);
+    std::vector<double> calibrate_rapsavgerror(torch::Tensor input, torch::Tensor labels, double error, bool rand, double lambda, int64_t k, int64_t c);
     std::vector<std::vector<int64_t>> predict_set(torch::Tensor input, const param& params);
     std::vector<double> calibrate(torch::Tensor input, torch::Tensor labels, const param& p);
+    std::vector<double> calibrate_hf(torch::Tensor input, torch::Tensor labels, const param& p);
     std::vector<std::vector<int64_t>> crsvphf(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> cusvphf(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> csvp(torch::Tensor input, const param& params);

@@ -348,36 +348,30 @@ std::vector<std::vector<int64_t>> SVP::predict_set_avgerror(torch::Tensor input,
     return prediction;
 }
 
-std::vector<std::vector<int64_t>> SVP::predict_set_apsavgerror(torch::Tensor input, double error, int64_t c) {
+std::vector<std::vector<int64_t>> SVP::predict_set_rapsavgerror(torch::Tensor input, double error, bool rand, double lambda, int64_t k, int64_t c) {
     std::vector<std::vector<int64_t>> prediction;
     // init problem
     param p;
-    p.svptype = SVPType::APSAVGERRORCTRL;
+    p.svptype = SVPType::RAPSAVGERRORCTRL;
     p.error = error;
+    p.rand = rand;
+    p.lambda = lambda;
+    p.k = k
     p.c = c;
     prediction = this->predict_set(input, p);
     
     return prediction;
 }
 
-std::vector<double> SVP::calibrate_avgerror(torch::Tensor input, torch::Tensor labels, double error, int64_t c) {
+std::vector<double> SVP::calibrate_rapsavgerror(torch::Tensor input, torch::Tensor labels, double error, bool rand, double lambda, int64_t k, int64_t c) {
     std::vector<double> scores;
     // init problem
     param p;
-    p.svptype = SVPType::AVGERRORCTRL;
+    p.svptype = SVPType::RAPSAVGERRORCTRL;
     p.error = error;
-    p.c = c;
-    scores = this->calibrate(input, labels, p);
-    
-    return scores;
-}
-
-std::vector<double> SVP::calibrate_apsavgerror(torch::Tensor input, torch::Tensor labels, double error, int64_t c) {
-    std::vector<double> scores;
-    // init problem
-    param p;
-    p.svptype = SVPType::APSAVGERRORCTRL;
-    p.error = error;
+    p.rand = rand;
+    p.lambda = lambda;
+    p.k = k
     p.c = c;
     scores = this->calibrate(input, labels, p);
     
@@ -394,7 +388,8 @@ std::vector<std::vector<int64_t>> SVP::predict_set(torch::Tensor input, const pa
         } else {
             prediction = this->crsvphf(input, p);
         }
-    } else if (p.svptype == SVPType::APSAVGERRORCTRL) {
+    } else if (p.svptype == SVPType::RAPSAVGERRORCTRL) {
+        /* TODO: change u depending on whether rand is set or not */
         torch::Tensor u = torch::rand({input.size(0)});
         if ((this->root->y.size() == 0) && (p.c == this->num_classes)) {
             prediction = this->acsvp(input, u, p);
@@ -418,9 +413,56 @@ std::vector<std::vector<int64_t>> SVP::predict_set(torch::Tensor input, const pa
     return prediction;
 }
 
+std::vector<double> SVP::calibrate_hf(torch::Tensor input, torch::Tensor labels, const param& p) {
+    std::vector<double> scores
+    torch::Tensor u = torch:Tensor();
+    if (p.rand) {
+        u = torch::rand({input.size(0)}); 
+    }
+    // run over each sample in batch
+    for (int64_t bi=0; bi<input.size(0); ++bi)
+    {
+        std::vector<HNode*> ystar;
+        std::vector<int64_t> ystarprime;
+        std::priority_queue<QNode> q;
+        q.push({this->root, 1.0});
+        double prob {0.0};
+        double score {0.0};
+        int64_t rank {0};
+        while (!q.empty()) {
+            QNode current {q.top()};
+            q.pop();
+            if (current.node->y.size() == 1) {
+                prob += current.prob;
+                rank += 1;
+                int64_t label_value = labels[bi].item<int64_t>();
+                if (current.node->y[0] == label_value) {
+                    score = prob + p.lambda*max((rank-p.k),0);
+                    if (p.rand) {
+                        score = score - (u[bi]*curent.prob);
+                    }
+                    break;
+                }
+            } else {
+                // forward step
+                auto o = current.node->estimator->forward(input[bi].view({1,-1}));
+                o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1)).to(torch::kCPU);
+                for (int64_t i = 0; i<static_cast<int64_t>(current.node->chn.size()); ++i)
+                {
+                    HNode* c_node {current.node->chn[i]};
+                    q.push({c_node, current.prob*o[0][i].item<double>()});
+                }
+            }
+        }
+        scores.push_back(score); 
+
+    return scores;
+}
+
 std::vector<double> SVP::calibrate(torch::Tensor input, torch::Tensor labels, const param& p) {
     std::vector<double> scores;
-    if (p.svptype == SVPType::APSAVGERRORCTRL) {
+    if (p.svptype == SVPType::RAPSAVGERRORCTRL) {
+        /* TODO: change depending on whether rand is set or not */
         torch::Tensor u = torch::rand({input.size(0)});
         std::vector<std::vector<int64_t>> (SVP::*svpPtr)(torch::Tensor, torch::Tensor, const param&);
         if ((this->root->y.size() == 0) && (p.c == this->num_classes)) {
@@ -1028,8 +1070,7 @@ PYBIND11_MODULE(svp_cpp, m) {
         .def("predict_set_size", &SVP::predict_set_size, "input"_a, "size"_a, "c"_a)
         .def("predict_set_error", &SVP::predict_set_error, "input"_a, "error"_a, "c"_a)
         .def("predict_set_avgerror", &SVP::predict_set_avgerror, "input"_a, "error"_a, "c"_a)
-        .def("predict_set_apsavgerror", &SVP::predict_set_apsavgerror, "input"_a, "error"_a, "c"_a)
-        .def("calibrate_avgerror", &SVP::calibrate_avgerror, "input"_a, "labels"_a, "error"_a, "c"_a)
-        .def("calibrate_apsavgerror", &SVP::calibrate_apsavgerror, "input"_a, "labels"_a, "error"_a, "c"_a)
+        .def("predict_set_rapsavgerror", &SVP::predict_set_rapsavgerror, "input"_a, "error"_a, "rand"_a, "lambda"_a, "k"_a, "c"_a)
+        .def("calibrate_rapsavgerror", &SVP::calibrate_rapsavgerror, "input"_a, "labels"_a, "error"_a, "rand"_a, "lambda"_a, "k"_a, "c"_a)
         .def("set_hstruct", &SVP::set_hstruct, "hstruct"_a);
 }
