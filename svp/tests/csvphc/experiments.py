@@ -138,7 +138,7 @@ def traintestsvp(args):
             val_acc += accuracy(preds, labels)
     print("Test accuracy={0}   test time={1}s".format(val_acc / i, val_time / i))
     for c in args.c:
-        params = {"svptype": args.svptype, "c": c, "error": 0.05} # note: error is ignored during calibration
+        params = {"svptype": args.svptype, "c": c, "error": 0.05, "rand": args.rand, "lambda": args.l, "k": args.k} # note: error is ignored during calibration
         # calibrate 
         cal_scores = []
         model.eval()
@@ -153,8 +153,9 @@ def traintestsvp(args):
                 stop_time = time.time()
                 val_time += (stop_time - start_time) / args.batchsize
         cal_scores = np.array(cal_scores) 
-        with open("./cal_scores.pkl", "wb") as f:
-            pickle.dump(cal_scores, f) 
+        if args.out != "":
+            with open("./cal_scores.pkl", "wb") as f:
+                pickle.dump(cal_scores, f) 
         print("Mean NC score={0}   calibration time={1}s".format(np.mean(cal_scores), val_time / i))
         print("Number of calibration points: {}".format(len(cal_scores)))
         # validate: svp performance
@@ -162,10 +163,11 @@ def traintestsvp(args):
             # update error param, given NC scores
             params["error"] = e
             print(params)
-            if params["svptype"] == "apsavgerrorctrl":
+            if params["svptype"] == "rapsavgerrorctrl":
                 idx_thresh = int(np.ceil((1-params["error"])*(1+len(cal_scores))))
                 params["error"] = 1-np.sort(cal_scores)[idx_thresh]
             else:
+
                 params["error"] = np.quantile(cal_scores, (1+(1/len(cal_scores)))*(1-params["error"]))
             print(params)
             preds_out, labels_out = [], []
@@ -236,6 +238,9 @@ if __name__ == "__main__":
     # SVP args
     parser.add_argument("-svptype", default="avgerrorctrl")
     parser.add_argument("-error", dest="error", nargs="+", type=float, default=[0.05])
+    parser.add_argument("-rand", dest="rand", type=bool, default=True)
+    parser.add_argument("-lambda", dest="lambda", type=float, default=0)
+    parser.add_argument("-kreg", dest="k", type=int, default=2)
     parser.add_argument("-c", dest="c", nargs="+", type=int, default=[1])
     # defaults
     parser.set_defaults(randomh=False)
