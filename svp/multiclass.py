@@ -332,14 +332,14 @@ class SVPNet(torch.nn.Module):
         elif params["svptype"] == "rapsavgerrorctrl":
             try:
                 error = float(params["error"])
-                rand = bool(params["bool"])
+                rand = bool(params["rand"])
                 l = float(params["lambda"])
                 k = int(params["k"])
             except TypeError:
                 raise TypeError(
                     "Invalid error, rand, l or k parameter."
                 )
-            o_t = self.SVP.predict_set_apsavgerror(x, error, rand, l, k, c)
+            o_t = self.SVP.predict_set_rapsavgerror(x, error, rand, l, k, c)
         else:
             raise TypeError(
                 "Invalid SVP type {0}! Valid options: {fb, dg, sizectrl, errorctrl, avgerrorctrl, rapsavgerrorctrl}.".format(

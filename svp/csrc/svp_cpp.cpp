@@ -424,8 +424,6 @@ std::vector<double> SVP::calibrate_hf(torch::Tensor input, torch::Tensor labels,
     // run over each sample in batch
     for (int64_t bi=0; bi<input.size(0); ++bi)
     {
-        std::vector<HNode*> ystar;
-        std::vector<int64_t> ystarprime;
         std::priority_queue<QNode> q;
         q.push({this->root, 1.0});
         double prob {0.0};
