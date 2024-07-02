@@ -439,7 +439,7 @@ std::vector<double> SVP::calibrate_hf(torch::Tensor input, torch::Tensor labels,
                 if (current.node->y[0] == label_value) {
                     score = prob + p.lambda*std::max(rank-p.k,int64_t(0));
                     if (p.rand) {
-                        score = score - (u[bi].item<double>()*current.prob);
+                        score = score - current.prob + u[bi].item<double>()*current.prob;
                     }
                     break;
                 }
@@ -483,7 +483,7 @@ std::vector<double> SVP::calibrate(torch::Tensor input, torch::Tensor labels, co
             if (idx[bi][yi].item<int64_t>() == label_value) {
                 score = prob + p.lambda*std::max(rank-p.k,int64_t(0));
                 if (p.rand) {
-                    score = score - (u[bi].item<double>()*o[bi][idx[bi][yi]].to(torch::kCPU).item<double>());
+                    score = score - o[bi][idx[bi][yi]].to(torch::kCPU).item<double>()+u[bi].item<double>()*o[bi][idx[bi][yi]].to(torch::kCPU).item<double>();
                 }
                 break;
             }
@@ -652,7 +652,7 @@ std::vector<std::vector<int64_t>> SVP::acrsvphf(torch::Tensor input, const param
         }
         HNode* search_node {current_node.node};
         if (p.rand) {
-            double IU = (U - (1-p.error))/(current_node.prob +p.lambda*((ystarprime.size()>p.k)? 1 : 0));
+            double IU = ((1-p.error)-(prob-current_node.prob)-p.lambda*std::max(rank-p.k,int64_t(0)))/current_node.prob;
             double u_scalar = u[bi].item<double>();
             if (IU <= u_scalar) {
                 ystarprime.pop_back();
@@ -718,7 +718,7 @@ std::vector<std::vector<int64_t>> SVP::acusvphf(torch::Tensor input, const param
             }
         }
         if (p.rand) {
-            double IU = (U - (1-p.error))/(current_node.prob +p.lambda*((ystarprime.size()>p.k)? 1 : 0));
+            double IU = ((1-p.error)-(prob-current_node.prob)-p.lambda*std::max(rank-p.k,int64_t(0)))/current_node.prob;
             double u_scalar = u[bi].item<double>();
             if (IU <= u_scalar) {
                 ystarprime.pop_back();
@@ -765,7 +765,7 @@ std::vector<std::vector<int64_t>> SVP::acsvp(torch::Tensor input, const param& p
             }
         }
         if (p.rand) {
-            double IU = (U - (1-p.error))/(probi+p.lambda*((ystar.size()>p.k)? 1 : 0));
+            double IU = ((1-p.error)-(prob-probi)-p.lambda*std::max(rank-p.k,int64_t(0)))/probi;
             double u_scalar = u[bi].item<double>();
             if (IU <= u_scalar) {
                 ystar.pop_back();
