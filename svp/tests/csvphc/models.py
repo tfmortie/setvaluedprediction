@@ -43,6 +43,7 @@ def get_phi_plantclef(args):
 
 """ dictionary representing dataset->phi mapper """
 GET_PHI = {
+    "CIFAR10": get_phi_caltech,
     "CAL101": get_phi_caltech,
     "CAL256": get_phi_caltech,
     "PLANTCLEF": get_phi_plantclef,

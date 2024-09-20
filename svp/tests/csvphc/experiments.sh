@@ -7,18 +7,66 @@
 #
 
 
+# New experiments 19/09/2024
 # Debug
-python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 1 -c 1 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.0 --rand |& tee ./logs/exp_h_raps_random_l0_cal256.txt
-#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.0 --no-rand  |& tee ./logs/exp_h_raps_nonrandom_l0_cal256.txt
-#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 -error 0.05 0.10 0.15 -svptype avgerrorctrl |& tee ./logs/exp_h_avgerror_cal256.txt
-#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 1 -c 1 256 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.0  |& tee ./logs/exp_h_raps_l0_cal256.txt
-#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 2 -c 1 256 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.5 -kreg 5 |& tee ./logs/exp_h_raps_l05_k5_cal256.txt
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CIFAR10 -out CIFAR10 -nexp 2 -k 10 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 10 -error 0.10 -svptype avgerrorctrl |& tee ./logs/exp_h_noraps_cifar10.txt
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CIFAR10 -out CIFAR10DEBUG -nexp 2 -k 10 -dim 200 -hi 1000 -b 64 -ne 1 -c 10 -error 0.10 -svptype avgerrorctrl --no-hm |& tee ./logs/exp_f_noraps_cifar10.txt
+
+# Debug
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 256 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.0 --rand |& tee ./logs/exp_h_raps_random_l0_cal256.txt
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 256 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.0 --rand --no-hm |& tee ./logs/exp_f_raps_random_l0_cal256.txt # ERROR 
+
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 256 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.0 --no-rand  |& tee ./logs/exp_h_raps_nonrandom_l0_cal256.txt
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 256 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.0 --no-rand  --no-hm |& tee ./logs/exp_f_raps_nonrandom_l0_cal256.txt # ERROR
+#
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 256 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.5 -kreg 5 --rand |& tee ./logs/exp_h_raps_random_l05_k5_cal256.txt
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 256 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.5 -kreg 5 --rand --no-hm |& tee ./logs/exp_f_raps_random_l05_k5_cal256.txt # ERROR
+#
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 256 -error 0.05 0.10 0.15 -svptype avgerrorctrl |& tee ./logs/exp_h_avgerror_cal256.txt 
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 256 -error 0.05 0.10 0.15 -svptype avgerrorctrl --no-hm |& tee ./logs/exp_f_avgerror_cal256.txt # ERROR
+
 #
 #python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 2 -c 1 256 -error 0.05 0.10 0.15 -svptype avgerrorctrl |& tee ./logs/exp_h_noraps_cal256.txt
 #python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 2 -c 1 256 -error 0.05 0.10 0.15 -svptype avgerrorctrl |& tee ./logs/exp_h_noraps_cal256.txt
 
 
-# New experiments 27/06/2024
+# New experiments 04/08/2024
+
+# CAL256
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 256 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.0 --rand |& tee ./logs/exp_h_raps_random_l0_cal256.txt
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 256 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.0 --rand --no-hm |& tee ./logs/exp_f_raps_random_l0_cal256.txt
+#
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 256 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.0 --no-rand  |& tee ./logs/exp_h_raps_nonrandom_l0_cal256.txt
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 256 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.0 --no-rand  --no-hm |& tee ./logs/exp_f_raps_nonrandom_l0_cal256.txt 
+#
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 256 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.5 -kreg 5 --rand |& tee ./logs/exp_h_raps_random_l05_k5_cal256.txt
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 256 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.5 -kreg 5 --rand --no-hm |& tee ./logs/exp_f_raps_random_l05_k5_cal256.txt 
+
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 256 -error 0.05 0.10 0.15 -svptype avgerrorctrl |& tee ./logs/exp_h_noraps_cal256.txt
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 256 -error 0.05 0.10 0.15 -svptype avgerrorctrl --no-hm |& tee ./logs/exp_f_noraps_cal256.txt
+
+# PLANTCLEF
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF -k 1000 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 1000 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.0 --rand |& tee ./logs/exp_h_raps_random_l0_plantclef.txt
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF -k 1000 -dim 200 -hi 1000 -b 32 -ne 100 -c 1000 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.0 --rand --no-hm |& tee ./logs/exp_f_raps_random_l0_plantclef.txt
+#
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF -k 1000 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 1000 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.0 --no-rand |& tee ./logs/exp_h_raps_nonrandom_l0_plantclef.txt
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF -k 1000 -dim 200 -hi 1000 -b 32 -ne 100 -c 1000 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.0 --no-rand --no-hm |& tee ./logs/exp_f_raps_nonrandom_l0_plantclef.txt 
+#
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF -k 1000 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 1000 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.5 -kreg 5 --rand |& tee ./logs/exp_h_raps_random_l05_k5_plantclef.txt
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF -k 1000 -dim 200 -hi 1000 -b 32 -ne 100 -c 1000 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.5 -kreg 5 --rand --no-hm |& tee ./logs/exp_f_raps_random_l05_k5_plantclef.txt 
+
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF -k 1000 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 1000 -error 0.05 0.10 0.15 -svptype avgerrorctrl |& tee ./logs/exp_h_noraps_plantclef.txt
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF -k 1000 -dim 200 -hi 1000 -b 32 -ne 100 -c 1000 -error 0.05 0.10 0.15 -svptype avgerrorctrl --no-hm |& tee ./logs/exp_f_noraps_plantclef.txt
+
+
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF -k 1000 -dim 200 -hi 1000 -l 0.0001 -b 32 -ne 100 -c 1 1000 -error 0.05 0.10 0.15 -svptype avgerrorctrl |& tee ./logs/exp_h_noaps_plantclef.txt
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF -k 1000 -dim 200 -hi 1000 -l 0.0001 -b 32 -ne 100 -c 1 1000 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl |& tee ./logs/exp_h_aps_plantclef.txt
+#
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF -k 1000 -dim 200 --no-hm -hi 1000 -l 0.0001 -b 32 -ne 100 -c 1000 -error 0.05 0.10 0.15 -svptype avgerrorctrl |& tee ./logs/exp_f_noaps_plantclef.txt
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF -k 1000 -dim 200 --no-hm -hi 1000 -l 0.0001 -b 32 -ne 100 -c 1000 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl |& tee ./logs/exp_f_aps_plantclef.txt
+#
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF --rh -k 1000 -dim 200 -hi 1000 -l 0.0001 -b 32 -ne 100 -c 1 1000 -error 0.05 0.10 0.15 -svptype avgerrorctrl |& tee ./logs/exp_rh_noaps_plantclef.txt
+#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF --rh -k 1000 -dim 200 -hi 1000 -l 0.0001 -b 32 -ne 100 -c 1 1000 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl |& tee ./logs/exp_rh_aps_plantclef.txt
 
 # New experiments 17/06/2024
 

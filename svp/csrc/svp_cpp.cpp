@@ -336,11 +336,11 @@ std::vector<std::vector<int64_t>> SVP::predict_set_error(torch::Tensor input, do
     return prediction;
 }
 
-std::vector<std::vector<int64_t>> SVP::predict_set_avgerror(torch::Tensor input, double error, int64_t c) {
+std::vector<std::vector<int64_t>> SVP::predict_set_lac(torch::Tensor input, double error, int64_t c) {
     std::vector<std::vector<int64_t>> prediction;
     // init problem
     param p;
-    p.svptype = SVPType::AVGERRORCTRL;
+    p.svptype = SVPType::LAC;
     p.error = error;
     p.c = c;
     prediction = this->predict_set(input, p);
@@ -348,11 +348,11 @@ std::vector<std::vector<int64_t>> SVP::predict_set_avgerror(torch::Tensor input,
     return prediction;
 }
 
-std::vector<std::vector<int64_t>> SVP::predict_set_rapsavgerror(torch::Tensor input, double error, bool rand, double lambda, int64_t k, int64_t c) {
+std::vector<std::vector<int64_t>> SVP::predict_set_raps(torch::Tensor input, double error, bool rand, double lambda, int64_t k, int64_t c) {
     std::vector<std::vector<int64_t>> prediction;
     // init problem
     param p;
-    p.svptype = SVPType::RAPSAVGERRORCTRL;
+    p.svptype = SVPType::RAPS;
     p.error = error;
     p.rand = rand;
     p.lambda = lambda;
@@ -363,11 +363,11 @@ std::vector<std::vector<int64_t>> SVP::predict_set_rapsavgerror(torch::Tensor in
     return prediction;
 }
 
-std::vector<double> SVP::calibrate_rapsavgerror(torch::Tensor input, torch::Tensor labels, double error, bool rand, double lambda, int64_t k, int64_t c) {
+std::vector<double> SVP::calibrate_raps(torch::Tensor input, torch::Tensor labels, double error, bool rand, double lambda, int64_t k, int64_t c) {
     std::vector<double> scores;
     // init problem
     param p;
-    p.svptype = SVPType::RAPSAVGERRORCTRL;
+    p.svptype = SVPType::RAPS;
     p.error = error;
     p.rand = rand;
     p.lambda = lambda;
@@ -384,21 +384,21 @@ std::vector<double> SVP::calibrate_rapsavgerror(torch::Tensor input, torch::Tens
 
 std::vector<std::vector<int64_t>> SVP::predict_set(torch::Tensor input, const param& p) {
     std::vector<std::vector<int64_t>> prediction;
-    if (p.svptype == SVPType::AVGERRORCTRL) {
+    if (p.svptype == SVPType::LAC) {
         if ((this->root->y.size() == 0) && (p.c == this->num_classes)) {
-            prediction = this->csvp(input, p);
+            prediction = this->lacsvp(input, p);
         } else if ((this->root->y.size() > 0) && (p.c == this->num_classes)) {
-            prediction = this->cusvphf(input, p);
+            prediction = this->lacusvphf(input, p);
         } else {
-            prediction = this->crsvphf(input, p);
+            prediction = this->lacrsvphf(input, p);
         }
-    } else if (p.svptype == SVPType::RAPSAVGERRORCTRL) {
+    } else if (p.svptype == SVPType::RAPS) {
         if ((this->root->y.size() == 0) && (p.c == this->num_classes)) {
-            prediction = this->acsvp(input, p);
+            prediction = this->rapssvp(input, p);
         } else if ((this->root->y.size() > 0) && (p.c == this->num_classes)) {
-            prediction = this->acusvphf(input, p);
+            prediction = this->rapsusvphf(input, p);
         } else {
-            prediction = this->acrsvphf(input, p);
+            prediction = this->rapsrsvphf(input, p);
         }
     } else {
         if ((this->root->y.size() == 0) && (p.c == this->num_classes)) {
@@ -494,7 +494,7 @@ std::vector<double> SVP::calibrate(torch::Tensor input, torch::Tensor labels, co
     return scores;
 }
 
-std::vector<std::vector<int64_t>> SVP::crsvphf(torch::Tensor input, const param& p) {
+std::vector<std::vector<int64_t>> SVP::lacrsvphf(torch::Tensor input, const param& p) {
     std::vector<std::vector<int64_t>> prediction;
     // run over each sample in batch
     for (int64_t bi=0; bi<input.size(0); ++bi)
@@ -549,7 +549,7 @@ std::vector<std::vector<int64_t>> SVP::crsvphf(torch::Tensor input, const param&
     return prediction;
 }
 
-std::vector<std::vector<int64_t>> SVP::cusvphf(torch::Tensor input, const param& p) {
+std::vector<std::vector<int64_t>> SVP::lacusvphf(torch::Tensor input, const param& p) {
     std::vector<std::vector<int64_t>> prediction;
     // run over each sample in batch
     for (int64_t bi=0; bi<input.size(0); ++bi)
@@ -584,7 +584,7 @@ std::vector<std::vector<int64_t>> SVP::cusvphf(torch::Tensor input, const param&
     return prediction;
 }
 
-std::vector<std::vector<int64_t>> SVP::csvp(torch::Tensor input, const param& p) {
+std::vector<std::vector<int64_t>> SVP::lacsvp(torch::Tensor input, const param& p) {
     std::vector<std::vector<int64_t>> prediction;
     auto o = this->root->estimator->forward(input);
     o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1));
@@ -608,7 +608,7 @@ std::vector<std::vector<int64_t>> SVP::csvp(torch::Tensor input, const param& p)
     return prediction;
 }
 
-std::vector<std::vector<int64_t>> SVP::acrsvphf(torch::Tensor input, const param& p) {
+std::vector<std::vector<int64_t>> SVP::rapsrsvphf(torch::Tensor input, const param& p) {
     std::vector<std::vector<int64_t>> prediction;
     torch::Tensor u = torch::tensor({0});
     if (p.rand) {
@@ -653,6 +653,7 @@ std::vector<std::vector<int64_t>> SVP::acrsvphf(torch::Tensor input, const param
         HNode* search_node {current_node.node};
         if (p.rand) {
             double IU = ((1-p.error)-(prob-current_node.prob)-p.lambda*std::max(rank-p.k,int64_t(0)))/current_node.prob;
+            //double IU = ((1-p.error)-(prob);
             double u_scalar = u[bi].item<double>();
             if (IU <= u_scalar) {
                 ystarprime.pop_back();
@@ -677,7 +678,7 @@ std::vector<std::vector<int64_t>> SVP::acrsvphf(torch::Tensor input, const param
     return prediction;
 }
 
-std::vector<std::vector<int64_t>> SVP::acusvphf(torch::Tensor input, const param& p) {
+std::vector<std::vector<int64_t>> SVP::rapsusvphf(torch::Tensor input, const param& p) {
     std::vector<std::vector<int64_t>> prediction;
     torch::Tensor u = torch::tensor({0});
     if (p.rand) {
@@ -735,7 +736,7 @@ std::vector<std::vector<int64_t>> SVP::acusvphf(torch::Tensor input, const param
     return prediction;
 }
 
-std::vector<std::vector<int64_t>> SVP::acsvp(torch::Tensor input, const param& p) {
+std::vector<std::vector<int64_t>> SVP::rapssvp(torch::Tensor input, const param& p) {
     std::vector<std::vector<int64_t>> prediction;
     torch::Tensor u = torch::tensor({0});
     if (p.rand) {
@@ -1076,8 +1077,8 @@ PYBIND11_MODULE(svp_cpp, m) {
         .def("predict_set_dg", &SVP::predict_set_dg, "input"_a, "delta"_a, "gamma"_a, "c"_a)
         .def("predict_set_size", &SVP::predict_set_size, "input"_a, "size"_a, "c"_a)
         .def("predict_set_error", &SVP::predict_set_error, "input"_a, "error"_a, "c"_a)
-        .def("predict_set_avgerror", &SVP::predict_set_avgerror, "input"_a, "error"_a, "c"_a)
-        .def("predict_set_rapsavgerror", &SVP::predict_set_rapsavgerror, "input"_a, "error"_a, "rand"_a, "lambda"_a, "k"_a, "c"_a)
-        .def("calibrate_rapsavgerror", &SVP::calibrate_rapsavgerror, "input"_a, "labels"_a, "error"_a, "rand"_a, "lambda"_a, "k"_a, "c"_a)
+        .def("predict_set_lac", &SVP::predict_set_lac, "input"_a, "error"_a, "c"_a)
+        .def("predict_set_raps", &SVP::predict_set_raps, "input"_a, "error"_a, "rand"_a, "lambda"_a, "k"_a, "c"_a)
+        .def("calibrate_raps", &SVP::calibrate_raps, "input"_a, "labels"_a, "error"_a, "rand"_a, "lambda"_a, "k"_a, "c"_a)
         .def("set_hstruct", &SVP::set_hstruct, "hstruct"_a);
 }

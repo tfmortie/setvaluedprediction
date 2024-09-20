@@ -190,13 +190,13 @@ class SVPNet(torch.nn.Module):
                 - size, int
                     Size parameter in case of svptype="sizectrl"
                 - error, float
-                    Error parameter in case of svptype="errorctrl", svptype="avgerrorctrl" or svptype="rapsavgerrorctrl"
+                    Error parameter in case of svptype="errorctrl", svptype="lac" or svptype="raps"
                 - rand, bool
-                    Whether randomized prediction sets should be returned or not in case of svptype="rapsavgerrorctrl"
+                    Whether randomized prediction sets should be returned or not in case of svptype="raps"
                 - lambda, float
-                    Regularization parameter for RAPS method (see Angelopolous et al. (2022)) in case of svptype="rapsavgerrorctrl"
+                    Regularization parameter for RAPS method (see Angelopolous et al. (2022)) in case of svptype="raps"
                 - k, int
-                    Regularization parameter for RAPS method (see Angelopolous et al. (2022)) in case of svptype="rapsavgerrorctrl"
+                    Regularization parameter for RAPS method (see Angelopolous et al. (2022)) in case of svptype="raps"
 
         Returns
         -------
@@ -205,19 +205,19 @@ class SVPNet(torch.nn.Module):
         """
         o = []
         # Transform labels to tensor
-        if params["svptype"] == "avgerrorctrl":
+        if params["svptype"] == "lac":
             # TODO: implement this part in Cpp module
             # get probs
             probs = self(X).detach().cpu().numpy()
             idx = np.array([list(self.classes_).index(l) for l in y])
             # select probs for classes
             o.extend(list(1-probs[np.arange(len(idx)),idx])) 
-        elif params["svptype"] == "rapsavgerrorctrl":
+        elif params["svptype"] == "raps":
             # Get embeddings first
             X = self.phi(X)
             # Transform labels
             y = torch.Tensor(self.transformer.transform(y, False)).long()
-            o.extend(list(self.SVP.calibrate_rapsavgerror(X, y, params["error"], params["rand"], params["lambda"], params["k"], params["c"])))
+            o.extend(list(self.SVP.calibrate_raps(X, y, params["error"], params["rand"], params["lambda"], params["k"], params["c"])))
         else:
             warnings.warn(
                 "Set-valued prediction type {0} is not suported".format(
@@ -250,13 +250,13 @@ class SVPNet(torch.nn.Module):
                 - size, int
                     Size parameter in case of svptype="sizectrl"
                 - error, float
-                    Error parameter in case of svptype="errorctrl", svptype="avgerrorctrl" or svptype="rapsavgerrorctrl"
+                    Error parameter in case of svptype="errorctrl", svptype="lac" or svptype="raps"
                 - rand, bool
-                    Whether randomized prediction sets should be returned or not in case of svptype="rapsavgerrorctrl"
+                    Whether randomized prediction sets should be returned or not in case of svptype="raps"
                 - lambda, float
-                    Regularization parameter for RAPS method (see Angelopolous et al. (2022)) in case of svptype="rapsavgerrorctrl"
+                    Regularization parameter for RAPS method (see Angelopolous et al. (2022)) in case of svptype="raps"
                 - k, int
-                    Regularization parameter for RAPS method (see Angelopolous et al. (2022)) in case of svptype="rapsavgerrorctrl"
+                    Regularization parameter for RAPS method (see Angelopolous et al. (2022)) in case of svptype="raps"
 
         Returns
         -------
@@ -319,7 +319,7 @@ class SVPNet(torch.nn.Module):
                     )
                 )
             o_t = self.SVP.predict_set_error(x, error, c)
-        elif params["svptype"] == "avgerrorctrl":
+        elif params["svptype"] == "lac":
             try:
                 error = float(params["error"])
             except TypeError:
@@ -328,8 +328,8 @@ class SVPNet(torch.nn.Module):
                         params["error"]
                     )
                 )
-            o_t = self.SVP.predict_set_avgerror(x, error, c)
-        elif params["svptype"] == "rapsavgerrorctrl":
+            o_t = self.SVP.predict_set_lac(x, error, c)
+        elif params["svptype"] == "raps":
             try:
                 error = float(params["error"])
                 rand = bool(params["rand"])
@@ -339,10 +339,10 @@ class SVPNet(torch.nn.Module):
                 raise TypeError(
                     "Invalid error, rand, l or k parameter."
                 )
-            o_t = self.SVP.predict_set_rapsavgerror(x, error, rand, l, k, c)
+            o_t = self.SVP.predict_set_raps(x, error, rand, l, k, c)
         else:
             raise TypeError(
-                "Invalid SVP type {0}! Valid options: {fb, dg, sizectrl, errorctrl, avgerrorctrl, rapsavgerrorctrl}.".format(
+                "Invalid SVP type {0}! Valid options: {fb, dg, sizectrl, errorctrl, lac, raps}.".format(
                     params["svptype"]
                 )
             )

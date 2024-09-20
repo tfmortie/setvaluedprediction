@@ -16,8 +16,8 @@ enum class SVPType {
     DG,
     SIZECTRL,
     ERRORCTRL,
-    AVGERRORCTRL,
-    RAPSAVGERRORCTRL /* see Romano et al. (2020); Angelopoulos et al. (2022)*/
+    LAC,
+    RAPS /* see Romano et al. (2020); Angelopoulos et al. (2022)*/
 };
 
 /* Defines the set-valued prediction problem */
@@ -77,19 +77,18 @@ struct SVP : torch::nn::Module {
     std::vector<std::vector<int64_t>> predict_set_dg(torch::Tensor input, double delta, double gamma, int64_t c);
     std::vector<std::vector<int64_t>> predict_set_size(torch::Tensor input, int64_t size, int64_t c);
     std::vector<std::vector<int64_t>> predict_set_error(torch::Tensor input, double error, int64_t c);
-    std::vector<std::vector<int64_t>> predict_set_avgerror(torch::Tensor input, double error, int64_t c);
-    std::vector<std::vector<int64_t>> predict_set_rapsavgerror(torch::Tensor input, double error, bool rand, double lambda, int64_t k, int64_t c);
-    std::vector<double> calibrate_avgerror(torch::Tensor input, torch::Tensor labels, double error, int64_t c);
-    std::vector<double> calibrate_rapsavgerror(torch::Tensor input, torch::Tensor labels, double error, bool rand, double lambda, int64_t k, int64_t c);
+    std::vector<std::vector<int64_t>> predict_set_lac(torch::Tensor input, double error, int64_t c);
+    std::vector<std::vector<int64_t>> predict_set_raps(torch::Tensor input, double error, bool rand, double lambda, int64_t k, int64_t c);
+    std::vector<double> calibrate_raps(torch::Tensor input, torch::Tensor labels, double error, bool rand, double lambda, int64_t k, int64_t c);
     std::vector<std::vector<int64_t>> predict_set(torch::Tensor input, const param& params);
     std::vector<double> calibrate(torch::Tensor input, torch::Tensor labels, const param& p);
     std::vector<double> calibrate_hf(torch::Tensor input, torch::Tensor labels, const param& p);
-    std::vector<std::vector<int64_t>> crsvphf(torch::Tensor input, const param& params);
-    std::vector<std::vector<int64_t>> cusvphf(torch::Tensor input, const param& params);
-    std::vector<std::vector<int64_t>> csvp(torch::Tensor input, const param& params);
-    std::vector<std::vector<int64_t>> acrsvphf(torch::Tensor input, const param& params);
-    std::vector<std::vector<int64_t>> acusvphf(torch::Tensor input, const param& params);
-    std::vector<std::vector<int64_t>> acsvp(torch::Tensor input, const param& params);
+    std::vector<std::vector<int64_t>> lacrsvphf(torch::Tensor input, const param& params);
+    std::vector<std::vector<int64_t>> lacusvphf(torch::Tensor input, const param& params);
+    std::vector<std::vector<int64_t>> lacsvp(torch::Tensor input, const param& params);
+    std::vector<std::vector<int64_t>> rapsrsvphf(torch::Tensor input, const param& params);
+    std::vector<std::vector<int64_t>> rapsusvphf(torch::Tensor input, const param& params);
+    std::vector<std::vector<int64_t>> rapssvp(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> gsvbop(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> gsvbop_r(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> gsvbop_hf(torch::Tensor input, const param& params);
