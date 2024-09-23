@@ -8,9 +8,30 @@
 
 
 # New experiments 19/09/2024
-# Debug
-#python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CIFAR10 -out CIFAR10 -nexp 2 -k 10 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 10 -error 0.10 -svptype avgerrorctrl |& tee ./logs/exp_h_noraps_cifar10.txt
-python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CIFAR10 -out CIFAR10DEBUG -nexp 2 -k 10 -dim 200 -hi 1000 -b 64 -ne 1 -c 10 -error 0.10 -svptype avgerrorctrl --no-hm |& tee ./logs/exp_f_noraps_cifar10.txt
+
+# CIFAR10
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CIFAR10 -out CIFAR10LAC1 -nexp 10 -k 10 -dim 200 -hi 1000 -b 64 -ne 100 -c 1 -error 0.10 -svptype lac |& tee ./logs/exp_h_lac_1_cifar10.txt 
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CIFAR10 -out CIFAR10RAPS1 -nexp 10 -k 10 -dim 200 -hi 1000 -b 64 -ne 100 -c 1 -error 0.10 -svptype raps --rand |& tee ./logs/exp_h_raps_1_cifar10.txt 
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CIFAR10 -out CIFAR10CR1 -nexp 10 -k 10 -dim 200 -hi 1000 -b 64 -ne 100 -c 1 -error 0.10 -svptype crsvphf |& tee ./logs/exp_h_crsvphf_1_cifar10.txt 
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CIFAR10 -out CIFAR10C1 -nexp 10 -k 10 -dim 200 -hi 1000 -b 64 -ne 100 -c 1 -error 0.10 -svptype csvphf |& tee ./logs/exp_h_csvphf_1_cifar10.txt 
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CIFAR10 -out CIFAR10C2 -nexp 10 -k 10 -dim 200 -hi 1000 -b 64 -ne 100 -c 2 -error 0.10 -svptype csvphf |& tee ./logs/exp_h_csvphf_2_cifar10.txt 
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CIFAR10 -out CIFAR10C3 -nexp 10 -k 10 -dim 200 -hi 1000 -b 64 -ne 100 -c 3 -error 0.10 -svptype csvphf |& tee ./logs/exp_h_csvphf_3_cifar10.txt
+
+# CALTECH256
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -out CAL256LAC1 -nexp 10 -k 256 -dim 200 -hi 1000 -b 64 -ne 100 -c 1 -error 0.10 -svptype lac |& tee ./logs/exp_h_lac_1_cal256.txt
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -out CAL256RAPS1 -nexp 10 -k 256 -dim 200 -hi 1000 -b 64 -ne 100 -c 1 -error 0.10 -svptype raps --rand |& tee ./logs/exp_h_raps_1_cal256.txt
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -out CAL256CR1 -nexp 10 -k 256 -dim 200 -hi 1000 -b 64 -ne 100 -c 1 -error 0.10 -svptype crsvphf |& tee ./logs/exp_h_crsvphf_1_cal256.txt
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -out CAL256C1 -nexp 10 -k 256 -dim 200 -hi 1000 -b 64 -ne 100 -c 1 -error 0.10 -svptype csvphf |& tee ./logs/exp_h_csvphf_1_cal256.txt
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -out CAL256C2 -nexp 10 -k 256 -dim 200 -hi 1000 -b 64 -ne 100 -c 2 -error 0.10 -svptype csvphf |& tee ./logs/exp_h_csvphf_2_cal256.txt
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -out CAL256C3 -nexp 10 -k 256 -dim 200 -hi 1000 -b 64 -ne 100 -c 3 -error 0.10 -svptype csvphf |& tee ./logs/exp_h_csvphf_3_cal256.txt
+
+# PLANTCLEF
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF -out PLANTCLEFLAC1 -nexp 10 -k 1000 -dim 200 -hi 1000 -b 64 -ne 100 -c 1 -error 0.10 -svptype lac |& tee ./logs/exp_h_lac_1_plantclef.txt
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF -out PLANTCLEFRAPS1 -nexp 10 -k 1000 -dim 200 -hi 1000 -b 64 -ne 100 -c 1 -error 0.10 -svptype raps --rand |& tee ./logs/exp_h_raps_1_plantclef.txt
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF -out PLANTCLEFCR1 -nexp 10 -k 1000 -dim 200 -hi 1000 -b 64 -ne 100 -c 1 -error 0.10 -svptype crsvphf |& tee ./logs/exp_h_crsvphf_1_plantclef.txt
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF -out PLANTCLEFC1 -nexp 10 -k 1000 -dim 200 -hi 1000 -b 64 -ne 100 -c 1 -error 0.10 -svptype csvphf |& tee ./logs/exp_h_csvphf_1_plantclef.txt
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF -out PLANTCLEFC2 -nexp 10 -k 1000 -dim 200 -hi 1000 -b 64 -ne 100 -c 2 -error 0.10 -svptype csvphf |& tee ./logs/exp_h_csvphf_2_plantclef.txt
+python -u experiments.py -p /home/data/tfmortier/Research/Datasets/PLANTCLEF -out PLANTCLEFC3 -nexp 10 -k 1000 -dim 200 -hi 1000 -b 64 -ne 100 -c 3 -error 0.10 -svptype csvphf |& tee ./logs/exp_h_csvphf_3_plantclef.txt
 
 # Debug
 #python -u experiments.py -p /home/data/tfmortier/Research/Datasets/CAL256 -k 256 -dim 200 -hi 1000 -b 32 -ne 100 -c 1 256 -error 0.05 0.10 0.15 -svptype rapsavgerrorctrl -lm 0.0 --rand |& tee ./logs/exp_h_raps_random_l0_cal256.txt

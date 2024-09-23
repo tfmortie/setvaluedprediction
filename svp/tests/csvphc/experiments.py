@@ -154,6 +154,7 @@ def traintestsvp(args):
             str_out.append(str(n))
             # calibrate 
             cal_scores = []
+            probs = []
             model.eval()
             for i, data in enumerate(tqdm(cal_data_loader), 1):
                 inputs, labels = data
@@ -161,24 +162,26 @@ def traintestsvp(args):
                 if args.gpu:
                     inputs = inputs.cuda()
                 with torch.no_grad():
+                    probs.append(model(inputs).detach().cpu().numpy())
                     start_time = time.time()
                     cal_scores.extend(model.calibrate(inputs, labels, params))
                     stop_time = time.time()
                     val_time += (stop_time - start_time) / args.batchsize
             cal_scores = np.array(cal_scores) 
             if args.out != "":
+                probs_out = np.vstack(probs)
+                np.save("./{0}/{1}_calib.npy".format(dataset, "_".join(str_out)), probs_out)
                 with open("./{0}/cal_scores_{1}.pkl".format(dataset, "_".join(str_out)), "wb") as f:
                     pickle.dump(cal_scores, f) 
             print("Mean NC score={0}   calibration time={1}s".format(np.mean(cal_scores), val_time / i))
             print("Number of calibration points: {}".format(len(cal_scores)))
+            ## add some random noise to the scores
+            #cal_scores += np.random.uniform(-1e-6, 1e-6, len(cal_scores))
             # validate: svp performance
             params["error"] = args.error
             print(params)
-            if params["svptype"] == "raps":
-                idx_thresh = int(np.ceil((1-params["error"])*(1+len(cal_scores))))
-                params["error"] = 1-np.sort(cal_scores)[idx_thresh]
-            else:
-                params["error"] = np.quantile(cal_scores, (1+(1/len(cal_scores)))*(1-params["error"]))
+            q_level = np.ceil((len(cal_scores)+1)*(1-params["error"]))/len(cal_scores)
+            params["error"] = np.quantile(cal_scores, q_level, method="higher")
             print(params)
             preds_out, labels_out = [], []
             test_recall, test_setsize, test_time = [], [], 0
@@ -259,6 +262,7 @@ if __name__ == "__main__":
     parser.set_defaults(randomh=False)
     parser.set_defaults(hmodel=True)
     parser.set_defaults(gpu=True)
+    parser.set_defaults(rand=False)
     args = parser.parse_args()
     # print arguments to console
     print(args)

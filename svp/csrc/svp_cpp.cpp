@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <random>
 #include <vector>
+#include <unordered_set>
 #include "svp_cpp.h"
 
 template<typename T>
@@ -67,6 +68,19 @@ std::vector<double> linspace(T start_in, T end_in, int num_in)
 
 bool contains(const std::vector<int64_t>& vec, int64_t value) {
     return std::find(vec.begin(), vec.end(), value) != vec.end();
+}
+
+
+bool have_common_elements(const std::vector<int64_t>& a, const std::vector<int64_t>& b) {
+    std::unordered_set<int64_t> set_a(a.begin(), a.end());
+    
+    for (const auto& elem : b) {
+        if (set_a.find(elem) != set_a.end()) {
+            return true;  // Common element found
+        }
+    }
+    
+    return false;  // No common elements
 }
 
 void HNode::addch(int64_t in_features, double dp, std::vector<int64_t> y, int64_t id) {
@@ -363,6 +377,29 @@ std::vector<std::vector<int64_t>> SVP::predict_set_raps(torch::Tensor input, dou
     return prediction;
 }
 
+std::vector<std::vector<int64_t>> SVP::predict_set_csvphf(torch::Tensor input, double error, int64_t c) {
+    std::vector<std::vector<int64_t>> prediction;
+    // init problem
+    param p;
+    p.svptype = SVPType::CSVPHF;
+    p.error = error;
+    p.c = c;
+    prediction = this->predict_set(input, p);
+    
+    return prediction;
+}
+
+std::vector<std::vector<int64_t>> SVP::predict_set_crsvphf(torch::Tensor input, double error) {
+    std::vector<std::vector<int64_t>> prediction;
+    // init problem
+    param p;
+    p.svptype = SVPType::CRSVPHF;
+    p.error = error;
+    prediction = this->predict_set(input, p);
+    
+    return prediction;
+}
+
 std::vector<double> SVP::calibrate_raps(torch::Tensor input, torch::Tensor labels, double error, bool rand, double lambda, int64_t k, int64_t c) {
     std::vector<double> scores;
     // init problem
@@ -374,11 +411,34 @@ std::vector<double> SVP::calibrate_raps(torch::Tensor input, torch::Tensor label
     p.k = k;
     p.c = c;
     if (this->root->y.size() == 0) {
-        scores = this->calibrate(input, labels, p);
+        scores = this->calibrate_raps_(input, labels, p);
     } else {
-        scores = this->calibrate_hf(input, labels, p);
+        scores = this->calibrate_raps_hf_(input, labels, p);
     }
     
+    return scores;
+}
+
+std::vector<double> SVP::calibrate_csvphf(torch::Tensor input, torch::Tensor labels, double error, int64_t c) {
+    std::vector<double> scores;
+    // init problem
+    param p;
+    p.svptype = SVPType::CSVPHF;
+    p.error = error;
+    p.c = c;
+    scores = this->calibrate_csvphf_hf_(input, labels, p);
+    
+    return scores;
+}
+
+std::vector<double> SVP::calibrate_crsvphf(torch::Tensor input, torch::Tensor labels, double error) {
+    std::vector<double> scores;
+    // init problem
+    param p;
+    p.svptype = SVPType::CRSVPHF;
+    p.error = error;
+    scores = this->calibrate_crsvphf_hf_(input, labels, p);
+ 
     return scores;
 }
 
@@ -400,6 +460,22 @@ std::vector<std::vector<int64_t>> SVP::predict_set(torch::Tensor input, const pa
         } else {
             prediction = this->rapsrsvphf(input, p);
         }
+    } else if (p.svptype == SVPType::CSVPHF) {
+        if ((this->root->y.size() == 0) && (p.c == this->num_classes)) {
+            prediction = this->rapssvp(input, p);
+        } if ((this->root->y.size() > 0) && (p.c == this->num_classes)) {
+            prediction = this->rapsusvphf(input, p);
+        } else {
+            prediction = this->csvphfrsvphf(input, p);
+        }
+    } else if (p.svptype == SVPType::CRSVPHF) {
+        if ((this->root->y.size() == 0) && (p.c == this->num_classes)) {
+            prediction = this->rapssvp(input, p);
+        } else if ((this->root->y.size() > 0) && (p.c == this->num_classes)) {
+            prediction = this->rapsusvphf(input, p);
+        } else {
+            prediction = this->crsvphfrsvphf(input, p);
+        }
     } else {
         if ((this->root->y.size() == 0) && (p.c == this->num_classes)) {
             prediction = this->gsvbop(input, p);
@@ -415,7 +491,7 @@ std::vector<std::vector<int64_t>> SVP::predict_set(torch::Tensor input, const pa
     return prediction;
 }
 
-std::vector<double> SVP::calibrate_hf(torch::Tensor input, torch::Tensor labels, const param& p) {
+std::vector<double> SVP::calibrate_raps_hf_(torch::Tensor input, torch::Tensor labels, const param& p) {
     std::vector<double> scores;
     torch::Tensor u = torch::tensor({0});
     if (p.rand) {
@@ -460,7 +536,96 @@ std::vector<double> SVP::calibrate_hf(torch::Tensor input, torch::Tensor labels,
     return scores;
 }
 
-std::vector<double> SVP::calibrate(torch::Tensor input, torch::Tensor labels, const param& p) {
+std::vector<double> SVP::calibrate_csvphf_hf_(torch::Tensor input, torch::Tensor labels, const param& p) {
+    std::vector<double> scores;
+    // run over each sample in batch
+    for (int64_t bi=0; bi<input.size(0); ++bi)
+    {
+        std::priority_queue<QNode> q;
+        q.push({this->root, 1.0});
+        std::vector<int64_t> a;
+        int64_t label_value = labels[bi].item<int64_t>();
+        while (!q.empty()) {
+            QNode current {q.top()};
+            q.pop();
+            if (current.node->y.size() == 1) {
+                // update a
+                a.push_back(current.node->y[0]);
+                if (current.node->y[0] == label_value) {
+                    break;
+                }
+            } else {
+                // forward step
+                auto o = current.node->estimator->forward(input[bi].view({1,-1}));
+                o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1)).to(torch::kCPU);
+                for (int64_t i = 0; i<static_cast<int64_t>(current.node->chn.size()); ++i)
+                {
+                    HNode* c_node {current.node->chn[i]};
+                    q.push({c_node, current.prob*o[0][i].item<double>()});
+                }
+            }
+        }
+        // calculate minimal covering set and corresponding probability mass
+        std::tuple<std::vector<int64_t>, double> bop {this->min_cov_set_r(input[bi].view({1,-1}), a, p)};
+        scores.push_back(std::get<1>(bop));
+    }
+
+    return scores;
+}
+
+std::vector<double> SVP::calibrate_crsvphf_hf_(torch::Tensor input, torch::Tensor labels, const param& p) {
+    std::vector<double> scores;
+    // run over each sample in batch
+    for (int64_t bi=0; bi<input.size(0); ++bi)
+    {
+        std::priority_queue<QNode> q;
+        q.push({this->root, 1.0});
+        double score {0.0};
+        while (!q.empty()) {
+            QNode current {q.top()};
+            q.pop();
+            if (current.node->y.size() == 1) {
+                score = current.prob;
+                int64_t label_value = labels[bi].item<int64_t>();
+                int64_t mode_label = current.node->y[0];
+                HNode* search_node {current.node};
+                while (std::find(search_node->y.begin(), search_node->y.end(), label_value) == search_node->y.end()) {
+                    search_node = search_node->parent;
+                    // calculate the probability of search_node->parent -> search_node
+                    auto o = search_node->estimator->forward(input[bi].view({1,-1}));
+                    o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1)).to(torch::kCPU);
+                    // first calculate appropriate index
+                    int64_t ind = -1;
+                    for (int64_t i=0; i<static_cast<int64_t>(search_node->chn.size()); ++i)
+                    {
+                        if (contains(search_node->chn[i]->y, mode_label))
+                        {
+                            ind = i;
+                            break;
+                        }
+                    }
+                    // now calculate probability of parent
+                    score = score/o[0][ind].item<double>();
+                }
+                break;
+            } else {
+                // forward step
+                auto o = current.node->estimator->forward(input[bi].view({1,-1}));
+                o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1)).to(torch::kCPU);
+                for (int64_t i = 0; i<static_cast<int64_t>(current.node->chn.size()); ++i)
+                {
+                    HNode* c_node {current.node->chn[i]};
+                    q.push({c_node, current.prob*o[0][i].item<double>()});
+                }
+            }
+        }
+        scores.push_back(score); 
+    }
+
+    return scores;
+}
+
+std::vector<double> SVP::calibrate_raps_(torch::Tensor input, torch::Tensor labels, const param& p) {
     std::vector<double> scores;
     torch::Tensor u = torch::tensor({0});
     if (p.rand) {
@@ -636,7 +801,7 @@ std::vector<std::vector<int64_t>> SVP::rapsrsvphf(torch::Tensor input, const par
                 prob += current.prob;
                 rank += 1;
                 U = prob + p.lambda*std::max(rank-p.k,int64_t(0));
-                if (U > (1-p.error)) {
+                if (U > p.error) {
                     break;
                 }
             } else {
@@ -652,7 +817,7 @@ std::vector<std::vector<int64_t>> SVP::rapsrsvphf(torch::Tensor input, const par
         }
         HNode* search_node {current_node.node};
         if (p.rand) {
-            double IU = ((1-p.error)-(prob-current_node.prob)-p.lambda*std::max(rank-p.k,int64_t(0)))/current_node.prob;
+            double IU = (p.error-(prob-current_node.prob)-p.lambda*std::max(rank-p.k,int64_t(0)))/current_node.prob;
             //double IU = ((1-p.error)-(prob);
             double u_scalar = u[bi].item<double>();
             if (IU <= u_scalar) {
@@ -704,7 +869,7 @@ std::vector<std::vector<int64_t>> SVP::rapsusvphf(torch::Tensor input, const par
                 prob += current.prob;
                 rank += 1;
                 U = prob + p.lambda*std::max(rank-p.k,int64_t(0));
-                if (U > (1-p.error)) {
+                if (U > p.error) {
                     break;
                 }
             } else {
@@ -719,7 +884,7 @@ std::vector<std::vector<int64_t>> SVP::rapsusvphf(torch::Tensor input, const par
             }
         }
         if (p.rand) {
-            double IU = ((1-p.error)-(prob-current_node.prob)-p.lambda*std::max(rank-p.k,int64_t(0)))/current_node.prob;
+            double IU = (p.error-(prob-current_node.prob)-p.lambda*std::max(rank-p.k,int64_t(0)))/current_node.prob;
             double u_scalar = u[bi].item<double>();
             if (IU <= u_scalar) {
                 ystarprime.pop_back();
@@ -761,18 +926,140 @@ std::vector<std::vector<int64_t>> SVP::rapssvp(torch::Tensor input, const param&
             rank += 1;
             U = prob + p.lambda*std::max(rank-p.k,int64_t(0));
             ystar.push_back(idx[bi][yi].item<int64_t>());
-            if (U > (1-p.error)) {
+            if (U > p.error) {
                 break;
             }
         }
         if (p.rand) {
-            double IU = ((1-p.error)-(prob-probi)-p.lambda*std::max(rank-p.k,int64_t(0)))/probi;
+            double IU = (p.error-(prob-probi)-p.lambda*std::max(rank-p.k,int64_t(0)))/probi;
             double u_scalar = u[bi].item<double>();
             if (IU <= u_scalar) {
                 ystar.pop_back();
             }
         }
         prediction.push_back(ystar);
+    }
+
+    return prediction;
+}
+
+std::vector<std::vector<int64_t>> SVP::csvphfrsvphf(torch::Tensor input, const param& p) {
+    std::vector<std::vector<int64_t>> prediction;
+    // run over each sample in batch
+    for (int64_t bi=0; bi<input.size(0); ++bi)
+    { 
+        double prob {0.0};
+        double U {0.0};
+        int64_t rank {0};
+        QNode current_node {nullptr};
+        std::vector<int64_t> ystarprime;
+        std::vector<std::vector<int64_t>> ystarprime_ext;
+        std::priority_queue<QNode> q;
+        q.push({this->root, 1.0});
+        while (!q.empty()) {
+            QNode current {q.top()};
+            q.pop();
+            if (current.node->y.size() == 1) {
+                // update states
+                current_node = current;
+                ystarprime.push_back(current.node->y[0]);
+                // calculate probability mass of minimal covering set
+                std::tuple<std::vector<int64_t>, double> bop {this->min_cov_set_r(input[bi].view({1,-1}), ystarprime, p)};
+                ystarprime_ext.push_back(std::get<0>(bop));
+                prob = std::get<1>(bop);
+                if (prob > p.error) {
+                    break;
+                }
+            } else {
+                // forward step
+                auto o = current.node->estimator->forward(input[bi].view({1,-1}));
+                o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1)).to(torch::kCPU);
+                for (int64_t i = 0; i<static_cast<int64_t>(current.node->chn.size()); ++i)
+                {
+                    HNode* c_node {current.node->chn[i]};
+                    q.push({c_node, current.prob*o[0][i].item<double>()});
+                }
+            }
+        }
+        if (ystarprime.size() == this->root->y.size()) {
+            prediction.push_back(ystarprime);
+        } else {
+            ystarprime_ext.pop_back();
+            if (!ystarprime_ext.empty()) {
+                ystarprime = ystarprime_ext.back();
+                prediction.push_back(ystarprime);
+            } else {
+                std::vector<int64_t> empty_set;
+                prediction.push_back(empty_set);
+            }
+        }
+    }
+
+    return prediction;
+}
+
+std::vector<std::vector<int64_t>> SVP::crsvphfrsvphf(torch::Tensor input, const param& p) {
+    std::vector<std::vector<int64_t>> prediction;
+    // run over each sample in batch
+    for (int64_t bi=0; bi<input.size(0); ++bi)
+    {
+        std::priority_queue<QNode> q;
+        q.push({this->root, 1.0});
+        double prob {0.0};
+        HNode* previous_node {nullptr};
+        HNode* search_node {nullptr};
+        while (!q.empty()) {
+            QNode current {q.top()};
+            q.pop();
+            if (current.node->y.size() == 1) {
+                // save label of mode
+                int64_t label_value = current.node->y[0];
+                prob = current.prob;
+                search_node = current.node;
+                while (search_node->y.size() != this->root->y.size()) {
+                    // check whether we can stop
+                    if (prob > p.error) {
+                        break;
+                    }
+                    previous_node = search_node;
+                    search_node = search_node->parent;
+                    // calculate the probability of search_node->parent -> search_node
+                    auto o = search_node->estimator->forward(input[bi].view({1,-1}));
+                    o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1)).to(torch::kCPU);
+                    // first calculate appropriate index
+                    int64_t ind = -1;
+                    for (int64_t i=0; i<static_cast<int64_t>(search_node->chn.size()); ++i)
+                    {
+                        if (contains(search_node->chn[i]->y, label_value))
+                        {
+                            ind = i;
+                            break;
+                        }
+                    }
+                    // now calculate probability of parent
+                    prob = prob/o[0][ind].item<double>();
+                }
+                if (search_node->y.size() == this->root->y.size()) {
+                    previous_node = search_node;
+                }
+                break;
+            } else {
+                // forward step
+                auto o = current.node->estimator->forward(input[bi].view({1,-1}));
+                o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1)).to(torch::kCPU);
+                for (int64_t i = 0; i<static_cast<int64_t>(current.node->chn.size()); ++i)
+                {
+                    HNode* c_node {current.node->chn[i]};
+                    q.push({c_node, current.prob*o[0][i].item<double>()});
+                }
+            }
+        }
+        if (previous_node != nullptr) {
+            prediction.push_back(previous_node->y);
+        } else {
+            std::vector<int64_t> empty_set;
+            prediction.push_back(empty_set);
+        }
     }
 
     return prediction;
@@ -1059,6 +1346,61 @@ std::tuple<std::vector<int64_t>, double> SVP::_gsvbop_hf_r(torch::Tensor input, 
     return prediction;
 }
     
+std::tuple<std::vector<int64_t>, double> SVP::min_cov_set_r(torch::Tensor input, std::vector<int64_t> a, const param& params) {
+    std::vector<int64_t> ystar {this->root->y};
+    double ystar_p {1.0};
+    std::vector<int64_t> yhat;
+    double yhat_p {0.0};
+    std::priority_queue<QNode> q;
+    q.push({this->root, 1.0});
+    std::tuple<std::vector<int64_t>, double> bop {this->_min_cov_set_r(input, a, params.c, ystar, ystar_p, yhat, yhat_p, q)};
+
+    return bop;
+}
+
+std::tuple<std::vector<int64_t>, double> SVP::_min_cov_set_r(torch::Tensor input, std::vector<int64_t> a, int64_t c, std::vector<int64_t> ystar, double ystar_p, std::vector<int64_t> yhat, double yhat_p, std::priority_queue<QNode> q) {
+    std::tuple<std::vector<int64_t>, double> prediction;
+    while (!q.empty()) {
+        std::vector<int64_t> ycur {yhat};
+        double ycur_p {yhat_p};
+        QNode current {q.top()};
+        q.pop();
+        for (int64_t i=0; i<static_cast<int64_t>(current.node->y.size()); ++i) {
+            ycur.push_back(current.node->y[i]);
+        }
+        ycur_p = ycur_p + current.prob;
+        if (isSubset(a, ycur)) {
+            if ((ycur.size()-ycur_p) < (ystar.size()-ystar_p)) {
+                ystar = ycur;
+                ystar_p = ycur_p;
+            }
+        }
+        if (c > 1) {
+            std::tuple<std::vector<int64_t>, double> bop {this->_min_cov_set_r(input, a, c-1, ystar, ystar_p, ycur, ycur_p, q)};
+            ystar = std::get<0>(bop);
+            ystar_p = std::get<1>(bop);
+        } else if (a.size() > ycur.size()) {
+            continue;
+        }
+        if (current.node->y.size() > 1) {
+            // forward step
+            auto o = current.node->estimator->forward(input);
+            o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1)).to(torch::kCPU);
+            for (int64_t i = 0; i<static_cast<int64_t>(current.node->chn.size()); ++i)
+            {
+                HNode* c_node {current.node->chn[i]};
+                if (have_common_elements(a, c_node->y)) {
+                    q.push({c_node, current.prob*o[0][i].item<double>()});
+                }
+            }
+        }    
+    }
+    std::get<0>(prediction) = ystar;
+    std::get<1>(prediction) = ystar_p;
+
+    return prediction;
+}
+    
 void SVP::set_hstruct(torch::Tensor hstruct) {
     this->hstruct = hstruct.to(torch::kFloat32);
 }
@@ -1079,6 +1421,10 @@ PYBIND11_MODULE(svp_cpp, m) {
         .def("predict_set_error", &SVP::predict_set_error, "input"_a, "error"_a, "c"_a)
         .def("predict_set_lac", &SVP::predict_set_lac, "input"_a, "error"_a, "c"_a)
         .def("predict_set_raps", &SVP::predict_set_raps, "input"_a, "error"_a, "rand"_a, "lambda"_a, "k"_a, "c"_a)
+        .def("predict_set_csvphf", &SVP::predict_set_csvphf, "input"_a, "error"_a, "c"_a)
+        .def("predict_set_crsvphf", &SVP::predict_set_crsvphf, "input"_a, "error"_a) 
         .def("calibrate_raps", &SVP::calibrate_raps, "input"_a, "labels"_a, "error"_a, "rand"_a, "lambda"_a, "k"_a, "c"_a)
+        .def("calibrate_csvphf", &SVP::calibrate_csvphf, "input"_a, "labels"_a, "error"_a, "c"_a)
+        .def("calibrate_crsvphf", &SVP::calibrate_crsvphf, "input"_a, "labels"_a, "error"_a)
         .def("set_hstruct", &SVP::set_hstruct, "hstruct"_a);
 }

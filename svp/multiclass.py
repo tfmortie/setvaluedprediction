@@ -190,7 +190,7 @@ class SVPNet(torch.nn.Module):
                 - size, int
                     Size parameter in case of svptype="sizectrl"
                 - error, float
-                    Error parameter in case of svptype="errorctrl", svptype="lac" or svptype="raps"
+                    Error parameter in case of svptype="errorctrl", svptype="lac", svptype="raps", svptype="csvphf" or svptype="crsvphf"
                 - rand, bool
                     Whether randomized prediction sets should be returned or not in case of svptype="raps"
                 - lambda, float
@@ -218,6 +218,18 @@ class SVPNet(torch.nn.Module):
             # Transform labels
             y = torch.Tensor(self.transformer.transform(y, False)).long()
             o.extend(list(self.SVP.calibrate_raps(X, y, params["error"], params["rand"], params["lambda"], params["k"], params["c"])))
+        elif params["svptype"] == "csvphf":
+            # Get embeddings first
+            X = self.phi(X)
+            # Transform labels
+            y = torch.Tensor(self.transformer.transform(y, False)).long()
+            o.extend(list(self.SVP.calibrate_csvphf(X, y, params["error"], params["c"])))
+        elif params["svptype"] == "crsvphf":
+            # Get embeddings first
+            X = self.phi(X)
+            # Transform labels
+            y = torch.Tensor(self.transformer.transform(y, False)).long()
+            o.extend(list(self.SVP.calibrate_crsvphf(X, y, params["error"])))
         else:
             warnings.warn(
                 "Set-valued prediction type {0} is not suported".format(
@@ -250,7 +262,7 @@ class SVPNet(torch.nn.Module):
                 - size, int
                     Size parameter in case of svptype="sizectrl"
                 - error, float
-                    Error parameter in case of svptype="errorctrl", svptype="lac" or svptype="raps"
+                    Error parameter in case of svptype="errorctrl", svptype="lac", svptype="raps", svptype="csvphf" or svptype="crsvphf"
                 - rand, bool
                     Whether randomized prediction sets should be returned or not in case of svptype="raps"
                 - lambda, float
@@ -340,9 +352,25 @@ class SVPNet(torch.nn.Module):
                     "Invalid error, rand, l or k parameter."
                 )
             o_t = self.SVP.predict_set_raps(x, error, rand, l, k, c)
+        elif params["svptype"] == "csvphf":
+            try:
+                error = float(params["error"])
+            except TypeError:
+                raise TypeError(
+                    "Invalid error parameter."
+                )
+            o_t = self.SVP.predict_set_csvphf(x, error, c)
+        elif params["svptype"] == "crsvphf":
+            try:
+                error = float(params["error"])
+            except TypeError:
+                raise TypeError(
+                    "Invalid error parameter."
+                )
+            o_t = self.SVP.predict_set_crsvphf(x, error)
         else:
             raise TypeError(
-                "Invalid SVP type {0}! Valid options: {fb, dg, sizectrl, errorctrl, lac, raps}.".format(
+                "Invalid SVP type {0}! Valid options: {fb, dg, sizectrl, errorctrl, lac, raps, csvphf, crsvphf}.".format(
                     params["svptype"]
                 )
             )
