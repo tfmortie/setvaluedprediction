@@ -15,6 +15,7 @@
 #include <torch/extension.h>
 #include <iostream>
 #include <queue>
+#include <future> 
 #include <math.h>
 #include <tuple>
 #include <sstream>
@@ -201,6 +202,7 @@ SVP::SVP(int64_t in_features, int64_t num_classes, double dp, torch::Tensor hstr
     this->root->chn = {};
     this->root->par = this;
 }
+
 
 torch::Tensor SVP::forward(torch::Tensor input, std::vector<std::vector<int64_t>> target) {
     torch::Tensor loss = torch::tensor({0}).to(input.device());

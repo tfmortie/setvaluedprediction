@@ -2,12 +2,13 @@
 Main module for experiments "Distribution-free set-valued prediction in hierarchical classification with finite sample guarantees".
 
 Author: Thomas Mortier
-Date: February 2024
+Date: September 2024
 """
 import time
 import argparse
 import torch
 import pickle
+import yaml
 import numpy as np
 
 from svp.multiclass import SVPNet
@@ -16,113 +17,86 @@ from data import GET_DATASETLOADER
 from models import GET_PHI, accuracy, recall, setsize, paramparser
 from tqdm import tqdm
 
-""" main function which trains and tests the SVP module """
-def traintestsvp(args):
+def load_config_file(config_file):
+    # Load config depending on the file format (YAML or JSON)
+    if config_file.endswith('.yaml') or config_file.endswith('.yml'):
+        with open(config_file, 'r') as f:
+            return yaml.safe_load(f)
+    else:
+        raise ValueError("Config file must be a .yaml/.yml")
+
+""" main function which trains the SVP module """
+def trainsvp(args):
     # extract dataset
     dataset = args.datapath.split("/")[-1]
-    # consider different random splits
-    for n in range(args.nexp):
-        # make sure that we increase our seed in order to obtain a different split
-        args.randomseeddata = args.randomseeddata + n
-        print(args.randomseeddata)
-        print("Extract {0}-th training, calibration and test set for {1}...".format(n, dataset))
-        train_data_loader, val_data_loader, cal_data_loader, test_data_loader, classes = GET_DATASETLOADER[dataset](args)
-        print("Done!")
-        print("Start training and testing model...")
-        # model which obtains hidden representations
-        phi = GET_PHI[dataset](args)
-        if args.hmodel:
-            if args.randomh:
-                model = SVPNet(
-                    phi,
-                    args.hidden,
-                    args.dropout,
-                    classes,
-                    hierarchy="random",
-                    random_state=args.randomseed,
-                )
-            else:
-                model = SVPNet(
-                    phi,
-                    args.hidden,
-                    args.dropout,
-                    classes,
-                    hierarchy="predefined",
-                    random_state=args.randomseed,
-                )
+    # make sure that we increase our seed in order to obtain a different split
+    print("Extract training and validation set for {0}...".format(dataset))
+    train_data_loader, val_data_loader, _, _, classes = GET_DATASETLOADER[dataset](args)
+    print("Done!")
+    print("Start training and testing model...")
+    # model which obtains hidden representations
+    phi = GET_PHI[dataset](args)
+    if args.hmodel:
+        if args.randomh:
+            model = SVPNet(
+                phi,
+                args.hidden,
+                args.dropout,
+                classes,
+                hierarchy="random",
+                random_state=args.randomseed,
+            )
         else:
             model = SVPNet(
-                phi, args.hidden, args.dropout, classes, hierarchy="none", random_state=args.randomseed
+                phi,
+                args.hidden,
+                args.dropout,
+                classes,
+                hierarchy="predefined",
+                random_state=args.randomseed,
             )
-        if args.gpu:
-            model = model.cuda()
-        # optimizer 
-        #optimizer = torch.optim.SGD(
-        #    model.parameters(), lr=args.learnrate, momentum=args.momentum
-        #)
-        optimizer = torch.optim.Adam(model.parameters(), lr=args.learnrate)
-        # train
-        best_val_loss = float('inf')
-        early_stop_counter = 0
-        patience = 4
-        for epoch in range(args.nepochs):
-            train_loss, train_time = 0.0, 0.0
-            model.train()
-            for i, data in enumerate(train_data_loader, 1):
-                inputs, labels = data
-                labels = list(labels)
-                if args.gpu:
-                    inputs = inputs.cuda()
-                optimizer.zero_grad()
-                start_time = time.time()
-                loss = model(inputs, labels)
-                loss.backward()
-                optimizer.step()
-                stop_time = time.time()
-                train_time += (stop_time - start_time) / args.batchsize
-                train_loss += loss.item()
-                #if i % args.nitprint == args.nitprint - 1:
-                if i % args.nitprint == 0:
-                    print(
-                        "Epoch {0}: training loss={1} training time={2}s".format(
-                            epoch,
-                            train_loss / args.nitprint,
-                            train_time / args.nitprint,
-                        )
+    else:
+        model = SVPNet(
+            phi, args.hidden, args.dropout, classes, hierarchy="none", random_state=args.randomseed
+        )
+    if args.gpu:
+        model = model.cuda()
+    # optimizer 
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.learnrate)
+    # train
+    best_val_loss = float('inf')
+    min_delta = 0.01
+    early_stop_counter = 0
+    patience = 3
+    for epoch in range(args.nepochs):
+        train_loss, train_time = 0.0, 0.0
+        model.train()
+        for i, data in enumerate(train_data_loader, 1):
+            inputs, labels = data
+            labels = list(labels)
+            if args.gpu:
+                inputs = inputs.cuda()
+            optimizer.zero_grad()
+            start_time = time.time()
+            loss = model(inputs, labels)
+            loss.backward()
+            optimizer.step()
+            stop_time = time.time()
+            train_time += (stop_time - start_time) / args.batchsize
+            train_loss += loss.item()
+            if i % args.nitprint == 0:
+                print(
+                    "Epoch {0}: training loss={1} training time={2}s".format(
+                        epoch,
+                        train_loss / args.nitprint,
+                        train_time / args.nitprint,
                     )
-                    train_loss, train_time = 0.0, 0.0 
-            # validate
-            model.eval()
-            val_loss = 0.0
-            val_acc, val_time = 0.0, 0.0
-            for i, data in enumerate(val_data_loader, 1):
-                inputs, labels = data
-                labels = list(labels)
-                if args.gpu:
-                    inputs = inputs.cuda()
-                with torch.no_grad():
-                    start_time = time.time()
-                    preds = model.predict(inputs)
-                    loss = model(inputs, labels)
-                    stop_time = time.time()
-                    val_time += (stop_time - start_time) / args.batchsize
-                    val_acc += accuracy(preds, labels)
-                    val_loss += loss.item()
-            val_loss /= i
-            val_acc /= i
-            val_time /= i
-            print("Validation loss={0}  acc={1}   test time={2}s".format(val_loss, val_acc, val_time))
-            # Check for early stopping
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                early_stop_counter = 0
-            else:
-                early_stop_counter += 1
-                if early_stop_counter >= patience:
-                    print("Early stopping at epoch", epoch)
-                    break
-        # validate: top-1 accuracy
+                )
+                train_loss, train_time = 0.0, 0.0 
+                break
+        # validate
         model.eval()
+        val_loss = 0.0
         val_acc, val_time = 0.0, 0.0
         for i, data in enumerate(val_data_loader, 1):
             inputs, labels = data
@@ -132,10 +106,61 @@ def traintestsvp(args):
             with torch.no_grad():
                 start_time = time.time()
                 preds = model.predict(inputs)
+                loss = model(inputs, labels)
                 stop_time = time.time()
                 val_time += (stop_time - start_time) / args.batchsize
                 val_acc += accuracy(preds, labels)
-        print("Test accuracy={0}   test time={1}s".format(val_acc / i, val_time / i))
+                val_loss += loss.item()
+                if i % args.nitprint == 0:
+                    val_loss /= args.nitprint
+                    val_acc /= args.nitprint
+                    val_time /= args.nitprint
+                    print("Validation loss={0}  acc={1}   test time={2}s".format(val_loss, val_acc, val_time))
+                    # Check for early stopping
+                    if val_loss < best_val_loss - min_delta:
+                        best_val_loss = val_loss
+                        early_stop_counter = 0
+                    else:
+                        early_stop_counter += 1
+                        if early_stop_counter >= patience:
+                            print("Early stopping at epoch", epoch)
+                    break
+        if early_stop_counter >= patience:
+            break
+    # validate: top-1 accuracy
+    model.eval()
+    val_acc, val_time = 0.0, 0.0
+    for i, data in enumerate(val_data_loader, 1):
+        inputs, labels = data
+        labels = list(labels)
+        if args.gpu:
+            inputs = inputs.cuda()
+        with torch.no_grad():
+            start_time = time.time()
+            preds = model.predict(inputs)
+            stop_time = time.time()
+            val_time += (stop_time - start_time) / args.batchsize
+            val_acc += accuracy(preds, labels)
+    print("Test accuracy={0}   test time={1}s".format(val_acc / i, val_time / i))
+    print("Done!")
+
+    return model
+
+""" main function which tests the SVP module """
+def testsvp(args, model):
+    # extract dataset
+    dataset = args.datapath.split("/")[-1]
+    # consider different random splits
+    for n in range(args.nexp):
+        # make sure that we increase our seed in order to obtain a different split
+        args.randomseeddata = args.randomseeddata + n
+        print(args.randomseeddata)
+        print("Extract {0}-th calibration and test set for {1}...".format(n, dataset))
+        _, _, cal_data_loader, test_data_loader, classes = GET_DATASETLOADER[dataset](args)
+        print("Done!")
+        print("Start inference...")
+        if not isinstance(args.c, list):
+            args.c = [args.c]
         for c in args.c:
             params = {"svptype": args.svptype, "c": c, "error": 0.05, "rand": args.rand, "lambda": args.lm, "k": args.k} # note: error is ignored during calibration
             # str for outputs
@@ -155,6 +180,7 @@ def traintestsvp(args):
             # calibrate 
             cal_scores = []
             probs = []
+            val_time = 0
             model.eval()
             for i, data in enumerate(tqdm(cal_data_loader), 1):
                 inputs, labels = data
@@ -176,7 +202,7 @@ def traintestsvp(args):
             print("Mean NC score={0}   calibration time={1}s".format(np.mean(cal_scores), val_time / i))
             print("Number of calibration points: {}".format(len(cal_scores)))
             ## add some random noise to the scores
-            #cal_scores += np.random.uniform(-1e-6, 1e-6, len(cal_scores))
+            cal_scores += np.random.uniform(-1e-6, 1e-6, len(cal_scores))
             # validate: svp performance
             params["error"] = args.error
             print(params)
@@ -226,9 +252,12 @@ def traintestsvp(args):
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Code for DFSVPHC experiments")
+    # allow config file argument
+    parser.add_argument("--config", dest="config", type=str, nargs="*")
     # data args
     parser.add_argument("-rsd", dest="randomseeddata", type=int, default=2024)
     parser.add_argument("-tr", dest="trainratio", type=float, default=0.5)
+    parser.add_argument("-te", dest="testratio", type=float, default=0.5)
     parser.add_argument("-p", dest="datapath", type=str, required=True)
     parser.add_argument("-k", dest="nclasses", type=int, required=True)
     parser.add_argument("-dim", dest="dim", type=int, required=True)
@@ -243,7 +272,6 @@ if __name__ == "__main__":
     parser.add_argument("-l", dest="learnrate", type=float, default=0.0001)
     parser.add_argument("-m", dest="momentum", type=float, default=0.99)
     parser.add_argument("-np", dest="nitprint", type=int, default=100)
-    parser.add_argument("-ts", dest="testsize", type=float, default=0.2)
     parser.add_argument("-rs", dest="randomseed", type=int, default=2024)
     parser.add_argument("--hm", dest="hmodel", action="store_true")
     parser.add_argument("--no-hm", dest="hmodel", action="store_false")
@@ -264,6 +292,19 @@ if __name__ == "__main__":
     parser.set_defaults(gpu=True)
     parser.set_defaults(rand=False)
     args = parser.parse_args()
-    # print arguments to console
-    print(args)
-    traintestsvp(args)
+    # first train probabilistic model
+    model = trainsvp(args)
+    if args.config:
+        print("CONFIG FILE PROVIDED!")
+        for cfg in args.config:
+            config_data = load_config_file(cfg)
+            for key, value in config_data.items():
+                if hasattr(args, key):
+                    setattr(args, key, value)
+            args.out = cfg.split("/")[-1].split(".")[0]
+            print(args)
+            testsvp(args, model)
+    else:
+        print("NO CONFIG FILE PROVIDED!")
+        print(args)
+        testsvp(args, model)

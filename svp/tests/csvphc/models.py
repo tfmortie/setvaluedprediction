@@ -28,14 +28,16 @@ def get_phi_bio(args):
 
 
 def get_phi_caltech(args):
-    phi = models.mobilenet_v2(pretrained=True)
+    #phi = models.mobilenet_v2(pretrained=True)
+    phi = models.efficientnet_b0(pretrained=True)
     phi.fx = Identity()
 
     return phi
 
 
 def get_phi_plantclef(args):
-    phi = models.mobilenet_v2(pretrained=True)
+    #phi = models.mobilenet_v2(pretrained=True)
+    phi = models.efficientnet_b0(pretrained=True)
     phi.fx = Identity()
 
     return phi

@@ -72,21 +72,17 @@ class ProteinDataset(Dataset):
 def ProteinDataloaders(args):
     # extract train and test data and merge
     trainval_dataset = ProteinDataset(
-        args.dim,
-        args.datapath + "/hierarchy_full.txt",
-        args.datapath + "/proteins_train_tfidfoh.svm",
+        struct_path=args.datapath + "/hierarchy_full.txt",
+        svm_path=args.datapath + "/proteins_train_tfidfoh.svm",
     )
     test_dataset = ProteinDataset(
-        args.dim,
-        args.datapath + "/hierarchy_full.txt",
-        args.datapath + "/proteins_test_tfidfoh.svm",
+        struct_path=args.datapath + "/hierarchy_full.txt",
+        svm_path=args.datapath + "/proteins_test_tfidfoh.svm",
     ) 
-    traintest_X = pd.concat([trainval_dataset.X, test_dataset.X], ignore_index=True)
-    traintest_y = pd.concat([trainval_dataset.y, test_dataset.y], ignore_index=True)
-    traintest_dataset = ProteinDataset(X=traintest_X, y=traintest_y)     
     # now split in train and calibration 
     generator = torch.Generator().manual_seed(args.randomseeddata)
-    train_dataset, cal_dataset, test_dataset = random_split(traintest_dataset, [args.trainratio, args.calratio, 1-args.trainratio-args.calratio], generator=generator)
+    train_dataset, val_dataset = random_split(trainval_dataset, [args.trainratio, 1-args.trainratio], generator=generator)
+    cal_dataset, test_dataset = random_split(test_dataset, [1-args.testratio, args.testratio], generator=generator)
     # get the loaders
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
@@ -172,21 +168,19 @@ class BacteriaDataset(Dataset):
 def BacteriaDataloaders(args):
     # extract train and test data and merge
     trainval_dataset = BacteriaDataset(
-        args.dim,
-        args.datapath + "/hierarchy_full.txt",
-        args.datapath + "/bacteria_train_tfidf.svm",
+        dim=args.dim,
+        struct_path=args.datapath + "/hierarchy_full.txt",
+        svm_path=args.datapath + "/bacteria_train_tfidf.svm",
     )
     test_dataset = BacteriaDataset(
-        args.dim,
-        args.datapath + "/hierarchy_full.txt",
-        args.datapath + "/bacteria_test_tfidf.svm",
+        dim=args.dim,
+        struct_path=args.datapath + "/hierarchy_full.txt",
+        svm_path=args.datapath + "/bacteria_test_tfidf.svm",
     ) 
-    traintest_X = pd.concat([trainval_dataset.X, test_dataset.X], ignore_index=True)
-    traintest_y = pd.concat([trainval_dataset.y, test_dataset.y], ignore_index=True)
-    traintest_dataset = BacteriaDataset(X=traintest_X, y=traintest_y)     
     # now split in train and calibration 
     generator = torch.Generator().manual_seed(args.randomseeddata)
-    train_dataset, val_dataset, cal_dataset, test_dataset = random_split(traintest_dataset, [args.trainratio, (1-args.trainratio)/3, (1-args.trainratio)/3, (1-args.trainratio)/3], generator=generator)
+    train_dataset, val_dataset = random_split(trainval_dataset, [args.trainratio, 1-args.trainratio], generator=generator)
+    cal_dataset, test_dataset = random_split(test_dataset, [1-args.testratio, args.testratio], generator=generator)
     # get the loaders
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
@@ -258,14 +252,12 @@ def CaltechDataloaders(args):
         ]
     )
     # extract train and test data and merge
-    trainval_dataset = CaltechDataset(args.datapath + "/TRAINVAL.csv", transform)
-    test_dataset = CaltechDataset(args.datapath + "/TEST.csv", transform) 
-    traintest_X = pd.concat([trainval_dataset.X, test_dataset.X], ignore_index=True)
-    traintest_y = pd.concat([trainval_dataset.y, test_dataset.y], ignore_index=True)
-    traintest_dataset = CaltechDataset(X=traintest_X, y=traintest_y, transform=transform)     
+    trainval_dataset = CaltechDataset(csv_path=args.datapath + "/TRAINVAL.csv", transform=transform)
+    test_dataset = CaltechDataset(csv_path=args.datapath + "/TEST.csv", transform=transform) 
     # now split in train and calibration 
     generator = torch.Generator().manual_seed(args.randomseeddata)
-    train_dataset, val_dataset, cal_dataset, test_dataset = random_split(traintest_dataset, [args.trainratio, (1-args.trainratio)/3, (1-args.trainratio)/3, (1-args.trainratio)/3], generator=generator)
+    train_dataset, val_dataset = random_split(trainval_dataset, [args.trainratio, 1-args.trainratio], generator=generator)
+    cal_dataset, test_dataset = random_split(test_dataset, [1-args.testratio, args.testratio], generator=generator)
     # get the loaders
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
@@ -337,21 +329,19 @@ def PlantclefDataloaders(args):
         ]
     )
     # extract train and test data and merge
-    trainval_dataset = PlantclefDataset(args.datapath + "/TRAINVAL.csv", transform)
-    test_dataset = PlantclefDataset(args.datapath + "/TEST.csv", transform) 
-    traintest_X = pd.concat([trainval_dataset.X, test_dataset.X], ignore_index=True)
-    traintest_y = pd.concat([trainval_dataset.y, test_dataset.y], ignore_index=True)
-    traintest_dataset = PlantclefDataset(X=traintest_X, y=traintest_y, transform=transform)     
+    trainval_dataset = PlantclefDataset(csv_path=args.datapath + "/TRAINVAL.csv", transform=transform)
+    test_dataset = PlantclefDataset(csv_path=args.datapath + "/TEST.csv", transform=transform) 
     # now split in train and calibration 
     generator = torch.Generator().manual_seed(args.randomseeddata)
-    train_dataset, val_dataset, cal_dataset, test_dataset = random_split(traintest_dataset, [args.trainratio, (1-args.trainratio)/3, (1-args.trainratio)/3, (1-args.trainratio)/3], generator=generator)
+    train_dataset, val_dataset = random_split(trainval_dataset, [args.trainratio, 1-args.trainratio], generator=generator)
+    cal_dataset, test_dataset = random_split(test_dataset, [1-args.testratio, args.testratio], generator=generator)
     # get the loaders
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=args.batchsize,
         shuffle=True,
         num_workers=4,
-        drop_last=True,
+        drop_last=True
     )
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
@@ -415,14 +405,12 @@ def CifarDataloaders(args):
         ]
     )
     # extract train and test data and merge
-    trainval_dataset = CifarDataset(args.datapath + "/TRAINVAL.csv", transform)
-    test_dataset = CifarDataset(args.datapath + "/TEST.csv", transform) 
-    traintest_X = pd.concat([trainval_dataset.X, test_dataset.X], ignore_index=True)
-    traintest_y = pd.concat([trainval_dataset.y, test_dataset.y], ignore_index=True)
-    traintest_dataset = CifarDataset(X=traintest_X, y=traintest_y, transform=transform)     
+    trainval_dataset = CifarDataset(csv_path=args.datapath + "/TRAINVAL.csv", transform=transform)
+    test_dataset = CifarDataset(csv_path=args.datapath + "/TEST.csv", transform=transform) 
     # now split in train and calibration 
     generator = torch.Generator().manual_seed(args.randomseeddata)
-    train_dataset, val_dataset, cal_dataset, test_dataset = random_split(traintest_dataset, [args.trainratio, (1-args.trainratio)/3, (1-args.trainratio)/3, (1-args.trainratio)/3], generator=generator)
+    train_dataset, val_dataset = random_split(trainval_dataset, [args.trainratio, 1-args.trainratio], generator=generator)
+    cal_dataset, test_dataset = random_split(test_dataset, [1-args.testratio, args.testratio], generator=generator)
     # get the loaders
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
