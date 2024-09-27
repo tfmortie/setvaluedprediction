@@ -82,10 +82,21 @@ def ProteinDataloaders(args):
     # now split in train and calibration 
     generator = torch.Generator().manual_seed(args.randomseeddata)
     train_dataset, val_dataset = random_split(trainval_dataset, [args.trainratio, 1-args.trainratio], generator=generator)
-    cal_dataset, test_dataset = random_split(test_dataset, [1-args.testratio, args.testratio], generator=generator)
+    tune_dataset = None
+    if args.tunelk:
+        cal_dataset, tune_dataset, test_dataset = random_split(test_dataset, [(1-args.testratio)/2, (1-args.testratio)/2, args.testratio], generator=generator)
+    else:
+        cal_dataset, test_dataset = random_split(test_dataset, [1-args.testratio, args.testratio], generator=generator)
     # get the loaders
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
+        batch_size=args.batchsize,
+        shuffle=True,
+        num_workers=4,
+        drop_last=True,
+    )
+    val_dataloader = torch.utils.data.DataLoader(
+        val_dataset,
         batch_size=args.batchsize,
         shuffle=True,
         num_workers=4,
@@ -98,6 +109,15 @@ def ProteinDataloaders(args):
         num_workers=4,
         drop_last=True,
     )
+    tune_dataloader = None
+    if tune_dataset is not None:
+        tune_dataloader = torch.utils.data.DataLoader(
+            tune_dataset,
+            batch_size=args.batchsize,
+            shuffle=True,
+            num_workers=4,
+            drop_last=True,
+        )
     test_dataloader = torch.utils.data.DataLoader(
         test_dataset,
         batch_size=args.batchsize,
@@ -106,7 +126,7 @@ def ProteinDataloaders(args):
         drop_last=True,
     )
 
-    return train_dataloader, cal_dataloader, test_dataloader, trainval_dataset.y
+    return train_dataloader, val_dataloader, cal_dataloader, tune_dataloader, test_dataloader, trainval_dataset.y
 
 
 """ general bacteria dataset file """
@@ -180,7 +200,11 @@ def BacteriaDataloaders(args):
     # now split in train and calibration 
     generator = torch.Generator().manual_seed(args.randomseeddata)
     train_dataset, val_dataset = random_split(trainval_dataset, [args.trainratio, 1-args.trainratio], generator=generator)
-    cal_dataset, test_dataset = random_split(test_dataset, [1-args.testratio, args.testratio], generator=generator)
+    tune_dataset = None
+    if args.tunelk:
+        cal_dataset, tune_dataset, test_dataset = random_split(test_dataset, [(1-args.testratio)/2, (1-args.testratio)/2, args.testratio], generator=generator)
+    else:
+        cal_dataset, test_dataset = random_split(test_dataset, [1-args.testratio, args.testratio], generator=generator)
     # get the loaders
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
@@ -203,6 +227,15 @@ def BacteriaDataloaders(args):
         num_workers=4,
         drop_last=True,
     )
+    tune_dataloader = None
+    if tune_dataset is not None:
+        tune_dataloader = torch.utils.data.DataLoader(
+            tune_dataset,
+            batch_size=args.batchsize,
+            shuffle=True,
+            num_workers=4,
+            drop_last=True,
+        )
     test_dataloader = torch.utils.data.DataLoader(
         test_dataset,
         batch_size=args.batchsize,
@@ -211,7 +244,7 @@ def BacteriaDataloaders(args):
         drop_last=True,
     )
 
-    return train_dataloader, val_dataloader, cal_dataloader, test_dataloader, trainval_dataset.y
+    return train_dataloader, val_dataloader, cal_dataloader, tune_dataloader, test_dataloader, trainval_dataset.y
 
 
 """ general Caltech dataset file """
@@ -257,7 +290,11 @@ def CaltechDataloaders(args):
     # now split in train and calibration 
     generator = torch.Generator().manual_seed(args.randomseeddata)
     train_dataset, val_dataset = random_split(trainval_dataset, [args.trainratio, 1-args.trainratio], generator=generator)
-    cal_dataset, test_dataset = random_split(test_dataset, [1-args.testratio, args.testratio], generator=generator)
+    tune_dataset = None
+    if args.tunelk:
+        cal_dataset, tune_dataset, test_dataset = random_split(test_dataset, [(1-args.testratio)/2, (1-args.testratio)/2, args.testratio], generator=generator)
+    else:
+        cal_dataset, test_dataset = random_split(test_dataset, [1-args.testratio, args.testratio], generator=generator)
     # get the loaders
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
@@ -280,6 +317,15 @@ def CaltechDataloaders(args):
         num_workers=4,
         drop_last=True,
     )
+    tune_dataloader = None
+    if tune_dataset is not None:
+        tune_dataloader = torch.utils.data.DataLoader(
+            tune_dataset,
+            batch_size=args.batchsize,
+            shuffle=True,
+            num_workers=4,
+            drop_last=True,
+        )
     test_dataloader = torch.utils.data.DataLoader(
         test_dataset,
         batch_size=args.batchsize,
@@ -288,7 +334,7 @@ def CaltechDataloaders(args):
         drop_last=True,
     )
 
-    return train_dataloader, val_dataloader, cal_dataloader, test_dataloader, trainval_dataset.y
+    return train_dataloader, val_dataloader, cal_dataloader, tune_dataloader, test_dataloader, trainval_dataset.y
 
 
 """ general Plantclef dataset file """
@@ -334,14 +380,18 @@ def PlantclefDataloaders(args):
     # now split in train and calibration 
     generator = torch.Generator().manual_seed(args.randomseeddata)
     train_dataset, val_dataset = random_split(trainval_dataset, [args.trainratio, 1-args.trainratio], generator=generator)
-    cal_dataset, test_dataset = random_split(test_dataset, [1-args.testratio, args.testratio], generator=generator)
+    tune_dataset = None
+    if args.tunelk:
+        cal_dataset, tune_dataset, test_dataset = random_split(test_dataset, [(1-args.testratio)/2, (1-args.testratio)/2, args.testratio], generator=generator)
+    else:
+        cal_dataset, test_dataset = random_split(test_dataset, [1-args.testratio, args.testratio], generator=generator)
     # get the loaders
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=args.batchsize,
         shuffle=True,
         num_workers=4,
-        drop_last=True
+        drop_last=True,
     )
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
@@ -357,6 +407,15 @@ def PlantclefDataloaders(args):
         num_workers=4,
         drop_last=True,
     )
+    tune_dataloader = None
+    if tune_dataset is not None:
+        tune_dataloader = torch.utils.data.DataLoader(
+            tune_dataset,
+            batch_size=args.batchsize,
+            shuffle=True,
+            num_workers=4,
+            drop_last=True,
+        )
     test_dataloader = torch.utils.data.DataLoader(
         test_dataset,
         batch_size=args.batchsize,
@@ -365,7 +424,7 @@ def PlantclefDataloaders(args):
         drop_last=True,
     )
 
-    return train_dataloader, val_dataloader, cal_dataloader, test_dataloader, trainval_dataset.y
+    return train_dataloader, val_dataloader, cal_dataloader, tune_dataloader, test_dataloader, trainval_dataset.y
 
 """ general Cifar10 dataset file """
 
@@ -410,7 +469,11 @@ def CifarDataloaders(args):
     # now split in train and calibration 
     generator = torch.Generator().manual_seed(args.randomseeddata)
     train_dataset, val_dataset = random_split(trainval_dataset, [args.trainratio, 1-args.trainratio], generator=generator)
-    cal_dataset, test_dataset = random_split(test_dataset, [1-args.testratio, args.testratio], generator=generator)
+    tune_dataset = None
+    if args.tunelk:
+        cal_dataset, tune_dataset, test_dataset = random_split(test_dataset, [(1-args.testratio)/2, (1-args.testratio)/2, args.testratio], generator=generator)
+    else:
+        cal_dataset, test_dataset = random_split(test_dataset, [1-args.testratio, args.testratio], generator=generator)
     # get the loaders
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
@@ -433,6 +496,15 @@ def CifarDataloaders(args):
         num_workers=4,
         drop_last=True,
     )
+    tune_dataloader = None
+    if tune_dataset is not None:
+        tune_dataloader = torch.utils.data.DataLoader(
+            tune_dataset,
+            batch_size=args.batchsize,
+            shuffle=True,
+            num_workers=4,
+            drop_last=True,
+        )
     test_dataloader = torch.utils.data.DataLoader(
         test_dataset,
         batch_size=args.batchsize,
@@ -441,7 +513,7 @@ def CifarDataloaders(args):
         drop_last=True,
     )
 
-    return train_dataloader, val_dataloader, cal_dataloader, test_dataloader, trainval_dataset.y
+    return train_dataloader, val_dataloader, cal_dataloader, tune_dataloader, test_dataloader, trainval_dataset.y
 
 
 """ dictionary representing dataset->dataloaders mapper """

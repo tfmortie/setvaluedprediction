@@ -192,11 +192,11 @@ class SVPNet(torch.nn.Module):
                 - error, float
                     Error parameter in case of svptype="errorctrl", svptype="lac", svptype="raps", svptype="csvphf" or svptype="crsvphf"
                 - rand, bool
-                    Whether randomized prediction sets should be returned or not in case of svptype="raps"
+                    Whether randomized prediction sets should be returned or not in case of svptype="raps", svptype="csvphf" or svptype="crsvphf"
                 - lambda, float
-                    Regularization parameter for RAPS method (see Angelopolous et al. (2022)) in case of svptype="raps"
+                    Regularization parameter for RAPS method (see Angelopolous et al. (2022)) in case of svptype="raps", svptype="csvphf" or svptype="crsvphf"
                 - k, int
-                    Regularization parameter for RAPS method (see Angelopolous et al. (2022)) in case of svptype="raps"
+                    Regularization parameter for RAPS method (see Angelopolous et al. (2022)) in case of svptype="raps", svptype="csvphf" or svptype="crsvphf"
 
         Returns
         -------
@@ -223,13 +223,13 @@ class SVPNet(torch.nn.Module):
             X = self.phi(X)
             # Transform labels
             y = torch.Tensor(self.transformer.transform(y, False)).long()
-            o.extend(list(self.SVP.calibrate_csvphf(X, y, params["error"], params["c"])))
+            o.extend(list(self.SVP.calibrate_csvphf(X, y, params["error"], params["rand"], params["lambda"], params["k"], params["c"])))
         elif params["svptype"] == "crsvphf":
             # Get embeddings first
             X = self.phi(X)
             # Transform labels
             y = torch.Tensor(self.transformer.transform(y, False)).long()
-            o.extend(list(self.SVP.calibrate_crsvphf(X, y, params["error"])))
+            o.extend(list(self.SVP.calibrate_crsvphf(X, y, params["error"], params["rand"], params["lambda"], params["k"])))
         else:
             warnings.warn(
                 "Set-valued prediction type {0} is not suported".format(
@@ -264,11 +264,11 @@ class SVPNet(torch.nn.Module):
                 - error, float
                     Error parameter in case of svptype="errorctrl", svptype="lac", svptype="raps", svptype="csvphf" or svptype="crsvphf"
                 - rand, bool
-                    Whether randomized prediction sets should be returned or not in case of svptype="raps"
+                    Whether randomized prediction sets should be returned or not in case of svptype="raps", svptype="csvphf" or svptype="crsvphf"
                 - lambda, float
-                    Regularization parameter for RAPS method (see Angelopolous et al. (2022)) in case of svptype="raps"
+                    Regularization parameter for RAPS method (see Angelopolous et al. (2022)) in case of svptype="raps", svptype="csvphf" or svptype="crsvphf"
                 - k, int
-                    Regularization parameter for RAPS method (see Angelopolous et al. (2022)) in case of svptype="raps"
+                    Regularization parameter for RAPS method (see Angelopolous et al. (2022)) in case of svptype="raps", svptype="csvphf" or svptype="crsvphf"
 
         Returns
         -------
@@ -355,19 +355,25 @@ class SVPNet(torch.nn.Module):
         elif params["svptype"] == "csvphf":
             try:
                 error = float(params["error"])
+                rand = bool(params["rand"])
+                l = float(params["lambda"])
+                k = int(params["k"])
             except TypeError:
                 raise TypeError(
-                    "Invalid error parameter."
+                    "Invalid error, rand, l or k parameter."
                 )
-            o_t = self.SVP.predict_set_csvphf(x, error, c)
+            o_t = self.SVP.predict_set_csvphf(x, error, rand, l, k, c)
         elif params["svptype"] == "crsvphf":
             try:
                 error = float(params["error"])
+                rand = bool(params["rand"])
+                l = float(params["lambda"])
+                k = int(params["k"])
             except TypeError:
                 raise TypeError(
-                    "Invalid error parameter."
+                    "Invalid error, rand, l or k parameter."
                 )
-            o_t = self.SVP.predict_set_crsvphf(x, error)
+            o_t = self.SVP.predict_set_crsvphf(x, error, rand, l, k)
         else:
             raise TypeError(
                 "Invalid SVP type {0}! Valid options: {fb, dg, sizectrl, errorctrl, lac, raps, csvphf, crsvphf}.".format(
