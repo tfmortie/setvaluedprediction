@@ -45,7 +45,7 @@ struct HNode : torch::nn::Module {
     std::vector<int64_t> y;
     std::vector<HNode*> chn;
     torch::nn::Module *par;
-    HNode* parent;
+    HNode* parent {nullptr};
     // functions
     void addch(int64_t in_features, double dp, std::vector<int64_t> y, int64_t id); 
     torch::Tensor forward(torch::Tensor input, torch::nn::CrossEntropyLoss criterion, int64_t y_ind={});
@@ -67,6 +67,7 @@ struct SVP : torch::nn::Module {
     double db;
     torch::Tensor hstruct;
     HNode* root;
+    std::unordered_map<HNode*, std::pair<double, std::vector<std::pair<std::vector<int64_t>,double>>> sr_map;
     // forward-pass functions
     SVP(int64_t in_features, int64_t num_classes, double dp, std::vector<std::vector<int64_t>> hstruct={});
     SVP(int64_t in_features, int64_t num_classes, double dp, torch::Tensor hstruct);
@@ -104,8 +105,12 @@ struct SVP : torch::nn::Module {
     std::vector<std::vector<int64_t>> gsvbop_hf(torch::Tensor input, const param& params);
     std::vector<std::vector<int64_t>> gsvbop_hf_r(torch::Tensor input, const param& params);
     std::tuple<std::vector<int64_t>, double> _gsvbop_hf_r(torch::Tensor input, const param& params, int64_t c, std::vector<int64_t> ystar, double ystar_u, std::vector<int64_t> yhat, double yhat_p, std::priority_queue<QNode> q);
-    std::tuple<std::vector<int64_t>, double> min_cov_set_r(torch::Tensor input, std::vector<int64_t> a, const param& params); // TODO: optimize (dynamic programming)
+    std::tuple<std::vector<int64_t>, double> min_cov_set_r(torch::Tensor input, std::vector<int64_t> a, const param& params);
     std::tuple<std::vector<int64_t>, double> _min_cov_set_r(torch::Tensor input, std::vector<int64_t> a, int64_t c, std::vector<int64_t> ystar, double ystar_p, std::vector<int64_t> yhat, double yhat_p, std::priority_queue<QNode> q);
+    // DP solution
+    void init_ca_sr(torch::Tensor input, const std::vector<int64_t>& a, std::vector<HNode*>& q, const param& params);
+    void update_ca_sr(torch::Tensor input, const std::vector<int64_t>& a, double a_p, std::vector<HNode*>& q, const param& params);
+    std::tuple<std::vector<int64_t>, double> min_cov_set_dp(torch::Tensor input, std::vector<int64_t> a, std::vector<HNode*>& q, const param& params);
     // other functions
     void set_hstruct(torch::Tensor hstruct);
 };

@@ -21,6 +21,7 @@
 #include <sstream>
 #include <string>
 #include <chrono>
+#include <climits>
 #include <iostream>
 #include <algorithm>
 #include <random>
@@ -82,6 +83,33 @@ bool have_common_elements(const std::vector<int64_t>& a, const std::vector<int64
     }
     
     return false;  // No common elements
+}
+
+// Helper function to generate decompositions
+void decompose(int64_t r, int64_t T, std::vector<int64_t>& current, std::vector<std::vector<int64_t>>& result) {
+    // Base case: if we have exactly T elements and the sum equals r
+    if (T == 0) {
+        if (r == 0) {
+            result.push_back(current);
+        }
+        return;
+    }
+
+    // Try values from 1 to r, excluding 0
+    for (int64_t i = 1; i <= r; ++i) {
+        current.push_back(i);
+        decompose(r - i, T - 1, current, result);  // Recur for remaining sum and elements
+        current.pop_back();  // Backtrack to try the next number
+    }
+}
+
+// Main function to calculate the decompositions
+std::vector<std::vector<int64_t>> dec_w_var(int64_t r, int64_t T) {
+    std::vector<std::vector<int64_t>> result;
+    std::vector<int64_t> current;
+    decompose(r, T, current, result);
+
+    return result;
 }
 
 void HNode::addch(int64_t in_features, double dp, std::vector<int64_t> y, int64_t id) {
@@ -1462,6 +1490,105 @@ std::tuple<std::vector<int64_t>, double> SVP::_gsvbop_hf_r(torch::Tensor input, 
 
     return prediction;
 }
+
+
+void SVP::init_ca_sr(torch::Tensor input, const std::vector<int64_t>& a, std::vector<HNode*>& q, const param& params) {
+    std::priority_queue<QNode> pq;
+    pq.push({this->root, 1.0});
+    while (!pq.empty()) {
+        QNode current {pq.top()};
+        pq.pop();
+        // calculate intersection
+        std::unordered_set<int64_t> node_y_set(current.node->y.begin(), current.node->y.end());
+        std::unordered_set<int64_t> A_set(a.begin(), a.end());
+        std::vector<int64_t> intersection;
+        std::set_intersection(node_y_set.begin(), node_y_set.end(),
+                                A_set.begin(), A_set.end(),
+                                std::back_inserter(intersection));
+        // calculate ca variable
+        bool ca = !intersection.empty();
+        this->sr_map[current.node] = std::make_pair(
+            current->prob,
+            std::vector<std::pair<std::vector<int64_t>, double>>(params.c, std::make_pair(std::vector<int64_t>(), 0.0)) 
+        );
+        // if at leaf node, init q
+        if ((current.node->y.size() == 1) && ca) {
+            if (current.node->parent && std::find(q.begin(), q.end(), current.node->parent) == q.end()) {
+                q.push_back(current.node->parent);
+            }
+            this->sr_map[current.node] = std::make_pair(
+                current->prob,
+                std::vector<std::pair<std::vector<int64_t>, double>>(params.c, std::make_pair(current.node->y, current->prob)) 
+            );
+        } else {
+            // forward step
+            auto o = current.node->estimator->forward(input);
+            o = torch::nn::functional::softmax(o, torch::nn::functional::SoftmaxFuncOptions(1)).to(torch::kCPU);
+            for (int64_t i = 0; i<static_cast<int64_t>(current.node->chn.size()); ++i)
+            {
+                HNode* c_node {current.node->chn[i]};
+                pq.push({c_node, current.prob*o[0][i].item<double>()});
+            }
+        }
+    }
+}
+
+void SVP::update_ca_sr(torch::Tensor input, QNode& a, std::vector<HNode*>& q, const param& params) {
+    HNode* search_node {a.node};
+    while (search_node->parent) {
+        if (search_node->y.size() > 1) {
+            this->sr_map[search_node].second = std::vector<std::pair<std::vector<int64_t>, double>>(params.c, std::make_pair(std::vector<int64_t>(), 0.0));
+        } else {
+            this->sr_map[search_node] = std::make_pair(
+                a.prob,
+                std::vector<std::pair<std::vector<int64_t>, double>>(p.c, std::make_pair(search_node->y, a.prob)) 
+            );
+            q.push_back(search_node->parent);
+        }
+        search_node = search_node->parent;
+    }
+}
+
+std::tuple<std::vector<int64_t>, double> SVP::min_cov_set_dp(torch::Tensor input, std::vector<int64_t> a, std::vector<HNode*>& q, const param& params) { 
+    // run over nodes and calculate sr
+    while (!q.empty()) {
+        HNode* v = q.back();
+        q.pop_back();
+        // Init T
+        std::vector<std::pair<HNode*, double>> T;
+        for (HNode* child : v->chn) {
+            if (!this->sr_map[child].second[0].empty()) {
+                T.push_back({child, this->sr_map[child].first});
+            }
+        } 
+        for (int64_t ri = 1; ri <= params.c; ri++) {
+            if (T.size() > ri) {
+                this->sr_map[v].second[ri-1] = {v->y, v.prob};
+            } else {
+                int64_t min_u = INT_MAX;
+                for (auto composition : dec_w_var(ri, T.size())) {
+                    std::vector<int64_t> s_temp;
+                    int64_t p_temp = 0;
+                    for (size_t i = 0; i < T.size(); ++i) {
+                        const auto& s_part = this->sr_map[T[i].first].second[composition[i]-1].first;
+                        s_temp.insert(s_temp.end(), s_part->y.begin(), s_part->y.end());
+                        p_temp += this->sr_map[T[i].first].second[composition[i]-1].second;
+                    }
+                    //s_temp.erase(std::unique(s_temp.begin(), s_temp.end()), s_temp.end());
+                    if (s_temp.size() - p_temp < min_u) {
+                        min_u = s_temp.size() - p_temp;
+                        this->sr_map[v].second[ri-1] = {s_temp, p_temp};
+                    }
+                }
+            }
+        }
+        if (v->parent != nullptr && std::find(q.begin(), q.end(), v->parent) == q.end()) {
+            q.push_back(v->parent);
+        }
+    }
+
+    return this->sr_map[this->root].second[params.c-1].first; 
+}
     
 std::tuple<std::vector<int64_t>, double> SVP::min_cov_set_r(torch::Tensor input, std::vector<int64_t> a, const param& params) {
     std::vector<int64_t> ystar {this->root->y};
@@ -1545,3 +1672,118 @@ PYBIND11_MODULE(svp_cpp, m) {
         .def("calibrate_crsvphf", &SVP::calibrate_crsvphf, "input"_a, "labels"_a, "error"_a, "rand"_a, "lambda"_a, "k"_a)
         .def("set_hstruct", &SVP::set_hstruct, "hstruct"_a);
 }
+
+
+
+/* 
+#include <torch/torch.h>
+#include <iostream>
+#include <vector>
+#include <unordered_set>
+#include <unordered_map>
+#include <climits> // For INT_MAX
+#include <algorithm> // For std::set_intersection
+
+struct HNode : torch::nn::Module {
+    torch::nn::Sequential estimator{nullptr};
+    std::vector<int64_t> y;  // Set of labels
+    std::vector<HNode*> chn; // Children nodes
+    HNode* parent = nullptr; // Parent node
+
+    // Functions to be added here for the hierarchical classification
+};
+
+class SVP {
+public:
+    std::unordered_map<HNode*, std::vector<std::pair<std::vector<int64_t>, int64_t>>> sr_map;
+
+    // Utility function to decompose 'r' into valid compositions
+    std::vector<std::vector<int64_t>> decompose_with_variations(int64_t r, int64_t T) {
+        std::vector<std::vector<int64_t>> result;
+        std::vector<int64_t> comb(T, 1);
+        do {
+            if (std::accumulate(comb.begin(), comb.end(), 0) == r) {
+                result.push_back(comb);
+            }
+        } while (std::next_permutation(comb.begin(), comb.end()));
+        return result;
+    }
+
+    // Main function to compute the minimal covering set
+    std::vector<int64_t> min_cov_set_dp(torch::Tensor input, std::vector<int64_t> A, const int64_t r, HNode* root) {
+        // Step 1: Initialize nodes and setup ca and sr values
+        std::vector<HNode*> q;
+        initialize_ca_sr(A, r, root, q);
+        
+        // Step 2: Process nodes in the queue and compute sr
+        while (!q.empty()) {
+            HNode* v = q.back();
+            q.pop_back();
+
+            std::vector<std::pair<std::vector<int64_t>, int64_t>> T;
+            for (HNode* child : v->chn) {
+                if (!sr_map[child].empty() && !sr_map[child][0].first.empty()) {
+                    T.push_back(sr_map[child][r - 1]);
+                }
+            }
+
+            for (int64_t ri = 1; ri <= r; ri++) {
+                if (T.size() > ri) {
+                    sr_map[v][ri - 1] = {v->y, v->y.size()};
+                } else {
+                    int64_t min_u = INT_MAX;
+                    for (auto composition : decompose_with_variations(ri, T.size())) {
+                        std::vector<int64_t> s_temp;
+                        int64_t p_temp = 0;
+                        for (size_t i = 0; i < T.size(); ++i) {
+                            const auto& s_part = sr_map[T[i].first][composition[i] - 1].first;
+                            s_temp.insert(s_temp.end(), s_part.begin(), s_part.end());
+                            p_temp += sr_map[T[i].first][composition[i] - 1].second;
+                        }
+                        s_temp.erase(std::unique(s_temp.begin(), s_temp.end()), s_temp.end());
+                        if (s_temp.size() - p_temp < min_u) {
+                            min_u = s_temp.size() - p_temp;
+                            sr_map[v][ri - 1] = {s_temp, p_temp};
+                        }
+                    }
+                }
+            }
+
+            if (v->parent != nullptr && std::find(q.begin(), q.end(), v->parent) == q.end()) {
+                q.push_back(v->parent);
+            }
+        }
+
+        return sr_map[root][r - 1].first;
+    }
+
+private:
+    // Helper function to initialize ca and sr for each node
+    void initialize_ca_sr(const std::vector<int64_t>& A, int64_t r, HNode* node, std::vector<HNode*>& q) {
+        if (node == nullptr) return;
+
+        std::unordered_set<int64_t> node_y_set(node->y.begin(), node->y.end());
+        std::unordered_set<int64_t> A_set(A.begin(), A.end());
+
+        std::vector<int64_t> intersection;
+        std::set_intersection(node_y_set.begin(), node_y_set.end(),
+                              A_set.begin(), A_set.end(),
+                              std::back_inserter(intersection));
+
+        bool ca = !intersection.empty();
+        sr_map[node] = std::vector<std::pair<std::vector<int64_t>, int64_t>>(r, {{}, INT_MAX});
+
+        if (node->chn.empty() && ca) {
+            if (node->parent && std::find(q.begin(), q.end(), node->parent) == q.end()) {
+                q.push_back(node->parent);
+            }
+            sr_map[node] = std::vector<std::pair<std::vector<int64_t>, int64_t>>(r, {node->y, static_cast<int64_t>(node->y.size())});
+        }
+
+        for (HNode* child : node->chn) {
+            initialize_ca_sr(A, r, child, q);
+        }
+    }
+};
+
+*/
