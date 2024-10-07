@@ -85,6 +85,31 @@ bool have_common_elements(const std::vector<int64_t>& a, const std::vector<int64
     return false;  // No common elements
 }
 
+std::vector<int64_t> calc_intersection(const std::vector<int64_t>& vec1, const std::vector<int64_t>& vec2) {
+    std::vector<int64_t> intersection_result;
+
+    // Step 1: Sort both input vectors (if not already sorted)
+    std::vector<int64_t> sorted_vec1 = vec1;
+    std::vector<int64_t> sorted_vec2 = vec2;
+    std::sort(sorted_vec1.begin(), sorted_vec1.end());
+    std::sort(sorted_vec2.begin(), sorted_vec2.end());
+
+    // Step 2: Resize the result vector to the minimum possible size
+    intersection_result.resize(std::min(sorted_vec1.size(), sorted_vec2.size()));
+
+    // Step 3: Use std::set_intersection to compute the intersection
+    auto it = std::set_intersection(
+        sorted_vec1.begin(), sorted_vec1.end(),
+        sorted_vec2.begin(), sorted_vec2.end(),
+        intersection_result.begin()
+    );
+
+    // Step 4: Resize the result to fit the actual intersection size
+    intersection_result.resize(it - intersection_result.begin());
+
+    return intersection_result;
+}
+
 // Helper function to generate decompositions
 void decompose(int64_t r, int64_t T, std::vector<int64_t>& current, std::vector<std::vector<int64_t>>& result) {
     // Base case: if we have exactly T elements and the sum equals r
@@ -615,7 +640,7 @@ std::vector<double> SVP::calibrate_csvphf_hf_(torch::Tensor input, torch::Tensor
         // calculate score
         std::vector<HNode*> qmcs;
         init_ca_sr(input[bi].view({1,-1}), a, qmcs, p);
-        std::tuple<std::vector<int64_t>, double> mincovset {this->min_cov_set_dp(input[bi].view({1,-1}), a, qmcs, p)}; 
+        std::tuple<std::vector<int64_t>, double> mincovset {this->min_cov_set_dp(input[bi].view({1,-1}), a, qmcs, p)}; // TODO
         //std::tuple<std::vector<int64_t>, double> mincovset {this->min_cov_set_r(input[bi].view({1,-1}), a, p)};
         double score {std::get<1>(mincovset)};
         int64_t rank {static_cast<int64_t>(std::get<0>(mincovset).size())};
@@ -625,7 +650,7 @@ std::vector<double> SVP::calibrate_csvphf_hf_(torch::Tensor input, torch::Tensor
                 a.pop_back();
                 std::vector<HNode*> qmcs;
                 init_ca_sr(input[bi].view({1,-1}), a, qmcs, p);
-                std::tuple<std::vector<int64_t>, double> mincovset {this->min_cov_set_dp(input[bi].view({1,-1}), a, qmcs, p)}; 
+                std::tuple<std::vector<int64_t>, double> mincovset_prev {this->min_cov_set_dp(input[bi].view({1,-1}), a, qmcs, p)}; 
                 //std::tuple<std::vector<int64_t>, double> mincovset_prev {this->min_cov_set_r(input[bi].view({1,-1}), a, p)};
                 double score_L {std::get<1>(mincovset)-std::get<1>(mincovset_prev)};
                 score = score - u[bi].item<double>()*score_L;
@@ -1072,7 +1097,7 @@ std::vector<std::vector<int64_t>> SVP::csvphfrsvphf(torch::Tensor input, const p
                     update_ca_sr(input[bi].view({1,-1}), current, qmcs, p);
                 }
                 std::tuple<std::vector<int64_t>, double> mincovset {this->min_cov_set_dp(input[bi].view({1,-1}), ystarprime, qmcs, p)}; 
-                //std::tuple<std::vector<int64_t>, double> mincovset {this->min_cov_set_r(input[bi].view({1,-1}), ystarprime, p)};
+                //std::tuple<std::vector<int64_t>, double> mincovset {this->min_cov_set_r(input[bi].view({1,-1}), ystarprime, p)}; // TODO
                 ystarprime_ext.push_back(mincovset);
                 score = std::get<1>(mincovset);
                 score = score + p.lambda*std::max(static_cast<int64_t>(std::get<0>(mincovset).size())-p.k,int64_t(0));
@@ -1512,27 +1537,25 @@ void SVP::init_ca_sr(torch::Tensor input, const std::vector<int64_t>& a, std::ve
         QNode current {pq.top()};
         pq.pop();
         // calculate intersection
-        std::unordered_set<int64_t> node_y_set(current.node->y.begin(), current.node->y.end());
-        std::unordered_set<int64_t> A_set(a.begin(), a.end());
-        std::vector<int64_t> intersection;
-        std::set_intersection(node_y_set.begin(), node_y_set.end(),
-                                A_set.begin(), A_set.end(),
-                                std::back_inserter(intersection));
+        std::vector<int64_t> intersection; 
+        intersection = calc_intersection(current.node->y, a);
         // calculate ca variable
         bool ca = !intersection.empty();
         this->sr_map[current.node] = std::make_pair(
-            current->prob,
+            current.prob,
             std::vector<std::pair<std::vector<int64_t>, double>>(params.c, std::make_pair(std::vector<int64_t>(), 0.0)) 
         );
         // if at leaf node, init q
-        if ((current.node->y.size() == 1) && ca) {
-            if (current.node->parent && std::find(q.begin(), q.end(), current.node->parent) == q.end()) {
-                q.push_back(current.node->parent);
+        if (current.node->y.size() == 1) {
+            if (ca) {
+                if (current.node->parent && std::find(q.begin(), q.end(), current.node->parent) == q.end()) {
+                    q.push_back(current.node->parent);
+                }
+                this->sr_map[current.node] = std::make_pair(
+                    current.prob,
+                    std::vector<std::pair<std::vector<int64_t>, double>>(params.c, std::make_pair(current.node->y, current.prob)) 
+                );
             }
-            this->sr_map[current.node] = std::make_pair(
-                current->prob,
-                std::vector<std::pair<std::vector<int64_t>, double>>(params.c, std::make_pair(current.node->y, current->prob)) 
-            );
         } else {
             // forward step
             auto o = current.node->estimator->forward(input);
@@ -1554,7 +1577,7 @@ void SVP::update_ca_sr(torch::Tensor input, QNode& a, std::vector<HNode*>& q, co
         } else {
             this->sr_map[search_node] = std::make_pair(
                 a.prob,
-                std::vector<std::pair<std::vector<int64_t>, double>>(p.c, std::make_pair(search_node->y, a.prob)) 
+                std::vector<std::pair<std::vector<int64_t>, double>>(params.c, std::make_pair(search_node->y, a.prob)) 
             );
             q.push_back(search_node->parent);
         }
@@ -1571,24 +1594,23 @@ std::tuple<std::vector<int64_t>, double> SVP::min_cov_set_dp(torch::Tensor input
         // Init T
         std::vector<std::pair<HNode*, double>> T;
         for (HNode* child : v->chn) {
-            if (!this->sr_map[child].second[0].empty()) {
+            if (!this->sr_map[child].second[0].first.empty()) {
                 T.push_back({child, this->sr_map[child].first});
             }
         } 
         for (int64_t ri = 1; ri <= params.c; ri++) {
             if (T.size() > ri) {
-                this->sr_map[v].second[ri-1] = {v->y, v.prob};
+                this->sr_map[v].second[ri-1] = std::make_pair(v->y, this->sr_map[v].first);
             } else {
-                int64_t min_u = INT_MAX;
+                double min_u = static_cast<double>(INT_MAX);
                 for (auto composition : dec_w_var(ri, T.size())) {
                     std::vector<int64_t> s_temp;
-                    int64_t p_temp = 0;
+                    double p_temp = 0.0;
                     for (size_t i = 0; i < T.size(); ++i) {
                         const auto& s_part = this->sr_map[T[i].first].second[composition[i]-1].first;
-                        s_temp.insert(s_temp.end(), s_part->y.begin(), s_part->y.end());
+                        s_temp.insert(s_temp.end(), s_part.begin(), s_part.end());
                         p_temp += this->sr_map[T[i].first].second[composition[i]-1].second;
                     }
-                    //s_temp.erase(std::unique(s_temp.begin(), s_temp.end()), s_temp.end());
                     if (s_temp.size() - p_temp < min_u) {
                         min_u = s_temp.size() - p_temp;
                         this->sr_map[v].second[ri-1] = {s_temp, p_temp};

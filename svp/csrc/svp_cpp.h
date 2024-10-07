@@ -67,7 +67,7 @@ struct SVP : torch::nn::Module {
     double db;
     torch::Tensor hstruct;
     HNode* root;
-    std::unordered_map<HNode*, std::pair<double, std::vector<std::pair<std::vector<int64_t>,double>>> sr_map;
+    std::unordered_map<HNode*, std::pair<double, std::vector<std::pair<std::vector<int64_t>,double>>>> sr_map;
     // forward-pass functions
     SVP(int64_t in_features, int64_t num_classes, double dp, std::vector<std::vector<int64_t>> hstruct={});
     SVP(int64_t in_features, int64_t num_classes, double dp, torch::Tensor hstruct);
