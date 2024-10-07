@@ -613,14 +613,20 @@ std::vector<double> SVP::calibrate_csvphf_hf_(torch::Tensor input, torch::Tensor
             }
         }
         // calculate score
-        std::tuple<std::vector<int64_t>, double> mincovset {this->min_cov_set_r(input[bi].view({1,-1}), a, p)};
+        std::vector<HNode*> qmcs;
+        init_ca_sr(input[bi].view({1,-1}), a, qmcs, p);
+        std::tuple<std::vector<int64_t>, double> mincovset {this->min_cov_set_dp(input[bi].view({1,-1}), a, qmcs, p)}; 
+        //std::tuple<std::vector<int64_t>, double> mincovset {this->min_cov_set_r(input[bi].view({1,-1}), a, p)};
         double score {std::get<1>(mincovset)};
         int64_t rank {static_cast<int64_t>(std::get<0>(mincovset).size())};
         score = score + p.lambda*std::max(rank-p.k,int64_t(0));
         if (p.rand) {
             if (a.size() > 1) {
                 a.pop_back();
-                std::tuple<std::vector<int64_t>, double> mincovset_prev {this->min_cov_set_r(input[bi].view({1,-1}), a, p)};
+                std::vector<HNode*> qmcs;
+                init_ca_sr(input[bi].view({1,-1}), a, qmcs, p);
+                std::tuple<std::vector<int64_t>, double> mincovset {this->min_cov_set_dp(input[bi].view({1,-1}), a, qmcs, p)}; 
+                //std::tuple<std::vector<int64_t>, double> mincovset_prev {this->min_cov_set_r(input[bi].view({1,-1}), a, p)};
                 double score_L {std::get<1>(mincovset)-std::get<1>(mincovset_prev)};
                 score = score - u[bi].item<double>()*score_L;
             } else {
@@ -1059,7 +1065,14 @@ std::vector<std::vector<int64_t>> SVP::csvphfrsvphf(torch::Tensor input, const p
                 current_node = current;
                 ystarprime.push_back(current.node->y[0]);
                 // calculate probability mass of minimal covering set
-                std::tuple<std::vector<int64_t>, double> mincovset {this->min_cov_set_r(input[bi].view({1,-1}), ystarprime, p)};
+                std::vector<HNode*> qmcs;
+                if (ystarprime.size() == 1) {
+                    init_ca_sr(input[bi].view({1,-1}), ystarprime, qmcs, p);
+                } else {
+                    update_ca_sr(input[bi].view({1,-1}), current, qmcs, p);
+                }
+                std::tuple<std::vector<int64_t>, double> mincovset {this->min_cov_set_dp(input[bi].view({1,-1}), ystarprime, qmcs, p)}; 
+                //std::tuple<std::vector<int64_t>, double> mincovset {this->min_cov_set_r(input[bi].view({1,-1}), ystarprime, p)};
                 ystarprime_ext.push_back(mincovset);
                 score = std::get<1>(mincovset);
                 score = score + p.lambda*std::max(static_cast<int64_t>(std::get<0>(mincovset).size())-p.k,int64_t(0));
@@ -1550,6 +1563,7 @@ void SVP::update_ca_sr(torch::Tensor input, QNode& a, std::vector<HNode*>& q, co
 }
 
 std::tuple<std::vector<int64_t>, double> SVP::min_cov_set_dp(torch::Tensor input, std::vector<int64_t> a, std::vector<HNode*>& q, const param& params) { 
+    std::tuple<std::vector<int64_t>, double> prediction;
     // run over nodes and calculate sr
     while (!q.empty()) {
         HNode* v = q.back();
@@ -1586,8 +1600,10 @@ std::tuple<std::vector<int64_t>, double> SVP::min_cov_set_dp(torch::Tensor input
             q.push_back(v->parent);
         }
     }
+    std::get<0>(prediction) = this->sr_map[this->root].second[params.c-1].first;
+    std::get<1>(prediction) = this->sr_map[this->root].second[params.c-1].second;
 
-    return this->sr_map[this->root].second[params.c-1].first; 
+    return prediction; 
 }
     
 std::tuple<std::vector<int64_t>, double> SVP::min_cov_set_r(torch::Tensor input, std::vector<int64_t> a, const param& params) {

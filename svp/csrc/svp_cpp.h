@@ -109,7 +109,7 @@ struct SVP : torch::nn::Module {
     std::tuple<std::vector<int64_t>, double> _min_cov_set_r(torch::Tensor input, std::vector<int64_t> a, int64_t c, std::vector<int64_t> ystar, double ystar_p, std::vector<int64_t> yhat, double yhat_p, std::priority_queue<QNode> q);
     // DP solution
     void init_ca_sr(torch::Tensor input, const std::vector<int64_t>& a, std::vector<HNode*>& q, const param& params);
-    void update_ca_sr(torch::Tensor input, const std::vector<int64_t>& a, double a_p, std::vector<HNode*>& q, const param& params);
+    void update_ca_sr(torch::Tensor input, QNode& a, std::vector<HNode*>& q, const param& params);
     std::tuple<std::vector<int64_t>, double> min_cov_set_dp(torch::Tensor input, std::vector<int64_t> a, std::vector<HNode*>& q, const param& params);
     // other functions
     void set_hstruct(torch::Tensor hstruct);
