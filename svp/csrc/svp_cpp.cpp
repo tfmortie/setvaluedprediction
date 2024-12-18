@@ -616,6 +616,8 @@ std::vector<double> SVP::calibrate_csvphf_hf_(torch::Tensor input, torch::Tensor
         std::priority_queue<QNode> q;
         q.push({this->root, 1.0});
         std::vector<int64_t> a;
+        std::tuple<std::vector<int64_t>, double> mincovset_prev = {std::vector<int64_t>{}, 0.0};
+        std::tuple<std::vector<int64_t>, double> mincovset = {std::vector<int64_t>{}, 0.0};
         int64_t label_value = labels[bi].item<int64_t>();
         while (!q.empty()) {
             QNode current {q.top()};
@@ -623,6 +625,33 @@ std::vector<double> SVP::calibrate_csvphf_hf_(torch::Tensor input, torch::Tensor
             if (current.node->y.size() == 1) {
                 // update a
                 a.push_back(current.node->y[0]);
+                std::vector<HNode*> qmcs;
+                if (a.size() == 1) {
+                    init_ca_sr(input[bi].view({1,-1}), a, qmcs, p);
+                } else {
+                    update_ca_sr(input[bi].view({1,-1}), current, qmcs, p);
+                }
+                if (!contains(std::get<0>(mincovset), current.node->y[0])) {
+                    //std::vector<HNode*> qmcs;
+                    //init_ca_sr(input[bi].view({1,-1}), a, qmcs, p); // TODO: check if it is more efficient to update in each iteration, instead of init once in a while
+                    std::tuple<std::vector<int64_t>, double> mincovset_new {this->min_cov_set_dp(input[bi].view({1,-1}), a, qmcs, p)};
+                    if (std::get<0>(mincovset_new).size() != std::get<0>(mincovset).size()) {
+                        mincovset_prev = mincovset;
+                        mincovset = mincovset_new;
+                    }
+                }
+                //// calculate probability mass of minimal covering set
+                //std::vector<HNode*> qmcs;
+                //if (a.size() == 1) {
+                //    init_ca_sr(input[bi].view({1,-1}), a, qmcs, p);
+                //} else {
+                //    update_ca_sr(input[bi].view({1,-1}), current, qmcs, p);
+                //}
+                //mincovset = this->min_cov_set_dp(input[bi].view({1,-1}), a, qmcs, p);
+                //// check if we need to update the previous
+                //if (std::get<0>(mincovset_prev).size() != std::get<0>(mincovset).size()) {
+                //    mincovset_prev = mincovset;
+                //}
                 if (current.node->y[0] == label_value) {
                     break;
                 }
@@ -637,21 +666,11 @@ std::vector<double> SVP::calibrate_csvphf_hf_(torch::Tensor input, torch::Tensor
                 }
             }
         }
-        // calculate score
-        std::vector<HNode*> qmcs;
-        init_ca_sr(input[bi].view({1,-1}), a, qmcs, p);
-        std::tuple<std::vector<int64_t>, double> mincovset {this->min_cov_set_dp(input[bi].view({1,-1}), a, qmcs, p)}; // TODO
-        //std::tuple<std::vector<int64_t>, double> mincovset {this->min_cov_set_r(input[bi].view({1,-1}), a, p)};
         double score {std::get<1>(mincovset)};
         int64_t rank {static_cast<int64_t>(std::get<0>(mincovset).size())};
         score = score + p.lambda*std::max(rank-p.k,int64_t(0));
         if (p.rand) {
             if (a.size() > 1) {
-                a.pop_back();
-                std::vector<HNode*> qmcs;
-                init_ca_sr(input[bi].view({1,-1}), a, qmcs, p);
-                std::tuple<std::vector<int64_t>, double> mincovset_prev {this->min_cov_set_dp(input[bi].view({1,-1}), a, qmcs, p)}; 
-                //std::tuple<std::vector<int64_t>, double> mincovset_prev {this->min_cov_set_r(input[bi].view({1,-1}), a, p)};
                 double score_L {std::get<1>(mincovset)-std::get<1>(mincovset_prev)};
                 score = score - u[bi].item<double>()*score_L;
             } else {
@@ -1078,8 +1097,9 @@ std::vector<std::vector<int64_t>> SVP::csvphfrsvphf(torch::Tensor input, const p
     { 
         double score {0.0};
         QNode current_node {nullptr};
-        std::vector<int64_t> ystarprime;
-        std::vector<std::tuple<std::vector<int64_t>, double>> ystarprime_ext;
+        std::vector<int64_t> a; 
+        std::tuple<std::vector<int64_t>, double> mincovset_prev = {std::vector<int64_t>{}, 0.0};
+        std::tuple<std::vector<int64_t>, double> mincovset = {std::vector<int64_t>{}, 0.0};
         std::priority_queue<QNode> q;
         q.push({this->root, 1.0});
         while (!q.empty()) {
@@ -1088,17 +1108,34 @@ std::vector<std::vector<int64_t>> SVP::csvphfrsvphf(torch::Tensor input, const p
             if (current.node->y.size() == 1) {
                 // update states
                 current_node = current;
-                ystarprime.push_back(current.node->y[0]);
-                // calculate probability mass of minimal covering set
+                a.push_back(current.node->y[0]);
                 std::vector<HNode*> qmcs;
-                if (ystarprime.size() == 1) {
-                    init_ca_sr(input[bi].view({1,-1}), ystarprime, qmcs, p);
+                if (a.size() == 1) {
+                    init_ca_sr(input[bi].view({1,-1}), a, qmcs, p);
                 } else {
                     update_ca_sr(input[bi].view({1,-1}), current, qmcs, p);
                 }
-                std::tuple<std::vector<int64_t>, double> mincovset {this->min_cov_set_dp(input[bi].view({1,-1}), ystarprime, qmcs, p)}; 
-                //std::tuple<std::vector<int64_t>, double> mincovset {this->min_cov_set_r(input[bi].view({1,-1}), ystarprime, p)}; // TODO
-                ystarprime_ext.push_back(mincovset);
+                if (!contains(std::get<0>(mincovset), current.node->y[0])) {
+                    //std::vector<HNode*> qmcs;
+                    //init_ca_sr(input[bi].view({1,-1}), a, qmcs, p); // TODO: check if it is more efficient to update in each iteration, instead of init once in a while
+                    std::tuple<std::vector<int64_t>, double> mincovset_new {this->min_cov_set_dp(input[bi].view({1,-1}), a, qmcs, p)};
+                    if (std::get<0>(mincovset_new).size() != std::get<0>(mincovset).size()) {
+                        mincovset_prev = mincovset;
+                        mincovset = mincovset_new;
+                    }
+                }
+                //// calculate probability mass of minimal covering set
+                //std::vector<HNode*> qmcs;
+                //if (a.size() == 1) {
+                //    init_ca_sr(input[bi].view({1,-1}), a, qmcs, p);
+                //} else {
+                //    update_ca_sr(input[bi].view({1,-1}), current, qmcs, p);
+                //}
+                //mincovset = this->min_cov_set_dp(input[bi].view({1,-1}), a, qmcs, p);
+                //// check if we need to update the previous
+                //if (std::get<0>(mincovset_prev).size() != std::get<0>(mincovset).size()) {
+                //    mincovset_prev = mincovset;
+                //}
                 score = std::get<1>(mincovset);
                 score = score + p.lambda*std::max(static_cast<int64_t>(std::get<0>(mincovset).size())-p.k,int64_t(0));
                 if (score > p.error) {
@@ -1116,15 +1153,13 @@ std::vector<std::vector<int64_t>> SVP::csvphfrsvphf(torch::Tensor input, const p
             }
         }
         if (p.rand) {
-            std::tuple<std::vector<int64_t>, double> mincovset {ystarprime_ext.back()};
-            ystarprime_ext.pop_back();
             double ind_value {0.0};
             if (std::get<0>(mincovset).size() > p.k) {
                 ind_value = 1.0;
             }
             double IU {0.0};
             double u_scalar = u[bi].item<double>();
-            if (ystarprime_ext.size() == 0) {
+            if (a.size() == 1) {
                 IU = (score-p.error)/(std::get<1>(mincovset)+p.lambda*ind_value);
                 if (u_scalar <= IU) {
                     std::vector<int64_t> empty_set;
@@ -1133,7 +1168,6 @@ std::vector<std::vector<int64_t>> SVP::csvphfrsvphf(torch::Tensor input, const p
                     prediction.push_back(std::get<0>(mincovset));
                 }
             } else {
-                std::tuple<std::vector<int64_t>, double> mincovset_prev {ystarprime_ext.back()};
                 double score_L {std::get<1>(mincovset)-std::get<1>(mincovset_prev)};
                 IU = (score-p.error)/(score_L+p.lambda*ind_value);
                 if (u_scalar <= IU) {
@@ -1143,7 +1177,6 @@ std::vector<std::vector<int64_t>> SVP::csvphfrsvphf(torch::Tensor input, const p
                 }
             }
         } else {
-            std::tuple<std::vector<int64_t>, double> mincovset {ystarprime_ext.back()};
             prediction.push_back(std::get<0>(mincovset));
         }
     }
@@ -1200,9 +1233,6 @@ std::vector<std::vector<int64_t>> SVP::crsvphfrsvphf(torch::Tensor input, const 
                     prev_prob = prob;
                     prob = prob/o[0][ind].item<double>();
                     score = prob + p.lambda*std::max(static_cast<int64_t>(search_node->y.size())-p.k,int64_t(0));
-                }
-                if (search_node->y.size() == this->root->y.size()) {
-                    previous_node = search_node;
                 }
                 break;
             } else {
