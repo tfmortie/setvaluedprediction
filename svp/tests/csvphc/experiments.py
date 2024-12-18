@@ -19,6 +19,9 @@ from data import GET_DATASETLOADER
 from models import GET_PHI, accuracy, recall, setsize, paramparser
 from tqdm import tqdm
 
+
+CUDA_DEVICE = "cuda:1"
+
 def load_config_file(config_file):
     # Load config depending on the file format (YAML or JSON)
     if config_file.endswith('.yaml') or config_file.endswith('.yml'):
@@ -70,7 +73,7 @@ def trainsvp(args):
             phi, args.hidden, args.dropout, classes, hierarchy="none", random_state=args.randomseed
         )
     if args.gpu:
-        model = model.cuda()
+        model = model.cuda(device=CUDA_DEVICE)
     # optimizer 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learnrate)
     # train
@@ -85,7 +88,7 @@ def trainsvp(args):
             inputs, labels = data
             labels = list(labels)
             if args.gpu:
-                inputs = inputs.cuda()
+                inputs = inputs.cuda(device=CUDA_DEVICE)
             optimizer.zero_grad()
             start_time = time.time()
             loss = model(inputs, labels)
@@ -112,7 +115,7 @@ def trainsvp(args):
             inputs, labels = data
             labels = list(labels)
             if args.gpu:
-                inputs = inputs.cuda()
+                inputs = inputs.cuda(device=CUDA_DEVICE)
             with torch.no_grad():
                 start_time = time.time()
                 preds = model.predict(inputs)
@@ -144,7 +147,7 @@ def trainsvp(args):
         inputs, labels = data
         labels = list(labels)
         if args.gpu:
-            inputs = inputs.cuda()
+            inputs = inputs.cuda(device=CUDA_DEVICE)
         with torch.no_grad():
             start_time = time.time()
             preds = model.predict(inputs)
@@ -197,7 +200,7 @@ def testsvp(args, model):
                     labels = list(labels)
                     labelidx.extend([item for sublist in model.transformer.transform(labels) for item in sublist])
                     if args.gpu:
-                        inputs = inputs.cuda()
+                        inputs = inputs.cuda(device=CUDA_DEVICE)
                     with torch.no_grad():
                         probs.append(model(inputs).detach().cpu().numpy())
                 probs_out = np.vstack(probs)
@@ -218,12 +221,12 @@ def testsvp(args, model):
                         inputs, labels = data
                         labels = list(labels)
                         if args.gpu:
-                            inputs = inputs.cuda()
+                            inputs = inputs.cuda(device=CUDA_DEVICE)
                         with torch.no_grad():
                             cal_scores.extend(model.calibrate(inputs, labels, params))
                     cal_scores = np.array(cal_scores) 
                     # add some random noise to the scores
-                    cal_scores += np.random.uniform(-1e-6, 1e-6, len(cal_scores))
+                    #cal_scores += np.random.uniform(-1e-6, 1e-6, len(cal_scores))
                     # validate: svp performance
                     params["error"] = args.error
                     q_level = np.ceil((len(cal_scores)+1)*(1-params["error"]))/len(cal_scores)
@@ -233,7 +236,7 @@ def testsvp(args, model):
                         inputs, labels = data
                         labels = list(labels)
                         if args.gpu:
-                            inputs = inputs.cuda()
+                            inputs = inputs.cuda(device=CUDA_DEVICE)
                         with torch.no_grad():
                             preds = model.predict_set(inputs, params)
                             setsize_np = setsize(preds)
@@ -252,7 +255,7 @@ def testsvp(args, model):
                 inputs, labels = data
                 labels = list(labels)
                 if args.gpu:
-                    inputs = inputs.cuda()
+                    inputs = inputs.cuda(device=CUDA_DEVICE)
                 with torch.no_grad():
                     probs.append(model(inputs).detach().cpu().numpy())
                     start_time = time.time()
@@ -260,15 +263,15 @@ def testsvp(args, model):
                     stop_time = time.time()
                     val_time += (stop_time - start_time) / args.batchsize
             cal_scores = np.array(cal_scores) 
-            #if args.out != "":
-            #    probs_out = np.vstack(probs)
-            #    np.save("./{0}/{1}_calib.npy".format(dataset, "_".join(str_out)), probs_out)
-            #    with open("./{0}/cal_scores_{1}.pkl".format(dataset, "_".join(str_out)), "wb") as f:
-            #        pickle.dump(cal_scores, f) 
+            if args.out != "":
+                probs_out = np.vstack(probs)
+                #np.save("./{0}/{1}_calib.npy".format(dataset, "_".join(str_out)), probs_out)
+                #with open("./{0}/cal_scores_{1}.pkl".format(dataset, "_".join(str_out)), "wb") as f:
+                #    pickle.dump(cal_scores, f) 
             print("Mean NC score={0}   calibration time={1}s".format(np.mean(cal_scores), val_time / i))
             print("Number of calibration points: {}".format(len(cal_scores)))
             ## add some random noise to the scores
-            cal_scores += np.random.uniform(-1e-6, 1e-6, len(cal_scores))
+            #cal_scores += np.random.uniform(-1e-6, 1e-6, len(cal_scores))
             # validate: svp performance
             params["error"] = args.error
             print(params)
@@ -282,7 +285,7 @@ def testsvp(args, model):
                 inputs, labels = data
                 labels = list(labels)
                 if args.gpu:
-                    inputs = inputs.cuda()
+                    inputs = inputs.cuda(device=CUDA_DEVICE)
                 with torch.no_grad():
                     start_time = time.time()
                     preds = model.predict_set(inputs, params)
