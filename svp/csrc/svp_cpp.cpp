@@ -625,15 +625,15 @@ std::vector<double> SVP::calibrate_csvphf_hf_(torch::Tensor input, torch::Tensor
             if (current.node->y.size() == 1) {
                 // update a
                 a.push_back(current.node->y[0]);
-                std::vector<HNode*> qmcs;
-                if (a.size() == 1) {
-                    init_ca_sr(input[bi].view({1,-1}), a, qmcs, p);
-                } else {
-                    update_ca_sr(input[bi].view({1,-1}), current, qmcs, p);
-                }
+                //std::vector<HNode*> qmcs;
+                //if (a.size() == 1) {
+                //    init_ca_sr(input[bi].view({1,-1}), a, qmcs, p);
+                //} else {
+                //    update_ca_sr(input[bi].view({1,-1}), current, qmcs, p);
+                //}
                 if (!contains(std::get<0>(mincovset), current.node->y[0])) {
-                    //std::vector<HNode*> qmcs;
-                    //init_ca_sr(input[bi].view({1,-1}), a, qmcs, p); // TODO: check if it is more efficient to update in each iteration, instead of init once in a while
+                    std::vector<HNode*> qmcs;
+                    init_ca_sr(input[bi].view({1,-1}), a, qmcs, p); // TODO: check if it is more efficient to update in each iteration, instead of init once in a while
                     std::tuple<std::vector<int64_t>, double> mincovset_new {this->min_cov_set_dp(input[bi].view({1,-1}), a, qmcs, p)};
                     if (std::get<0>(mincovset_new).size() != std::get<0>(mincovset).size()) {
                         mincovset_prev = mincovset;
@@ -1109,15 +1109,15 @@ std::vector<std::vector<int64_t>> SVP::csvphfrsvphf(torch::Tensor input, const p
                 // update states
                 current_node = current;
                 a.push_back(current.node->y[0]);
-                std::vector<HNode*> qmcs;
-                if (a.size() == 1) {
-                    init_ca_sr(input[bi].view({1,-1}), a, qmcs, p);
-                } else {
-                    update_ca_sr(input[bi].view({1,-1}), current, qmcs, p);
-                }
+                //std::vector<HNode*> qmcs;
+                //if (a.size() == 1) {
+                //    init_ca_sr(input[bi].view({1,-1}), a, qmcs, p);
+                //} else {
+                //    update_ca_sr(input[bi].view({1,-1}), current, qmcs, p);
+                //}
                 if (!contains(std::get<0>(mincovset), current.node->y[0])) {
-                    //std::vector<HNode*> qmcs;
-                    //init_ca_sr(input[bi].view({1,-1}), a, qmcs, p); // TODO: check if it is more efficient to update in each iteration, instead of init once in a while
+                    std::vector<HNode*> qmcs;
+                    init_ca_sr(input[bi].view({1,-1}), a, qmcs, p); // TODO: check if it is more efficient to update in each iteration, instead of init once in a while
                     std::tuple<std::vector<int64_t>, double> mincovset_new {this->min_cov_set_dp(input[bi].view({1,-1}), a, qmcs, p)};
                     if (std::get<0>(mincovset_new).size() != std::get<0>(mincovset).size()) {
                         mincovset_prev = mincovset;
