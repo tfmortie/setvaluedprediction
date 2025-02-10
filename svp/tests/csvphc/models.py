@@ -9,6 +9,7 @@ import torch.nn as nn
 import torchvision.models as models
 import numpy as np
 from itertools import product
+from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
 
 
 class Identity(nn.Module):
@@ -29,7 +30,8 @@ def get_phi_bio(args):
 
 def get_phi_caltech(args):
     #phi = models.mobilenet_v2(pretrained=True)
-    phi = models.efficientnet_b0(pretrained=True)
+    #phi = models.efficientnet_b0(pretrained=True)
+    phi = efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1)
     phi.fx = Identity()
 
     return phi
@@ -37,7 +39,8 @@ def get_phi_caltech(args):
 
 def get_phi_plantclef(args):
     #phi = models.mobilenet_v2(pretrained=True)
-    phi = models.efficientnet_b0(pretrained=True)
+    #phi = models.efficientnet_b0(pretrained=True)
+    phi = efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1)
     phi.fx = Identity()
 
     return phi

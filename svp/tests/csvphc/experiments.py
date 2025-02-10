@@ -12,13 +12,11 @@ import pickle
 import yaml
 import numpy as np
 from pathlib import Path
-
 from svp.multiclass import SVPNet
 from svp.utils import HLabelTransformer
 from data import GET_DATASETLOADER
 from models import GET_PHI, accuracy, recall, setsize, paramparser
 from tqdm import tqdm
-
 
 CUDA_DEVICE = "cuda:1"
 
@@ -48,7 +46,10 @@ def trainsvp(args):
     print("Done!")
     print("Start training and testing model...")
     # model which obtains hidden representations
+    print("Get PHI")
     phi = GET_PHI[dataset](args)
+    print("Done!")
+    print("Construct model")
     if args.hmodel:
         if args.randomh:
             model = SVPNet(
@@ -74,6 +75,7 @@ def trainsvp(args):
         )
     if args.gpu:
         model = model.cuda(device=CUDA_DEVICE)
+    print("Done!")
     # optimizer 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learnrate)
     # train
@@ -213,7 +215,8 @@ def testsvp(args, model):
                 print("Optimal k found = {}!".format(params["k"]))
                 # find optimal lambda
                 lambda_list = [0, 0.001, 0.01, 0.1, 0.2, 0.5]
-                opt_lambda, opt_size = 0, args.k
+                #opt_lambda, opt_size = 0, args.k # TODO: looks wrong
+                opt_lambda, opt_size = 0, float('inf') 
                 for lm in lambda_list:
                     params["lambda"] = lm
                     cal_scores = []
